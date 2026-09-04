@@ -292,14 +292,16 @@ function room(id,label,x,y,group,via){
    the reception/stairs branch. The stairs/elevator/front desk area hangs
    off a single vertical branch corridor at x=600. */
 var F1_HALLWAY_Y = 140;
-var F1_BRANCH_X = 685;
+var F1_BRANCH_X = 600;
 
 function f1DirectVia(x){ return [{x:x, y:F1_HALLWAY_Y}]; }
-function f1BranchVia(y){ return [{x:F1_BRANCH_X, y:y}, {x:F1_BRANCH_X, y:F1_HALLWAY_Y}]; }
+function f1BranchVia(y){ return [{x:F1_BRANCH_X, y:y}]; }
+var F1_PASSTHROUGHS = [F1_BRANCH_X];
 
 var FLOOR1 = {
   id:1, name:"Floor 1", img:IMG1, w:770, h:323,
   hallwayY:F1_HALLWAY_Y,
+  passthroughs:F1_PASSTHROUGHS,
   rooms:[
     room("121","121",122,86,"room",f1DirectVia(122)),
     room("120","120",190,86,"room",f1DirectVia(190)),
@@ -422,18 +424,23 @@ function pickCore(floor){
 
 /* Build a route between two rooms on the SAME floor: room -> its via chain
    out to the hallway -> straight run along the hallway -> the other room's
-   via chain, reversed, back in. Because both via chains end on the same
-   hallway line, the join between them IS that straight hallway run.
-   If the two rooms' via chains end on DIFFERENT hallway lines (Floor 2's
-   outer hallway vs. its middle hallway), detour through the nearest
-   pass-through between the two rooms first. */
+   via chain, reversed, back in. Two via-endpoints are "on the same line"
+   (and can just be connected directly) if they share a Y, like two rooms
+   both opening onto the same horizontal hallway, OR share an X, like two
+   rooms both opening onto the same vertical corridor/branch (e.g. Front
+   Desk, Stairs and Elevator all sitting on Floor 1's x=600 branch) - in
+   that case the join is a single straight run, no detour needed. If they
+   share neither, they're on genuinely different lines (Floor 2's outer
+   hallway vs. its middle hallway, or Floor 1's main hallway vs. its
+   branch), so detour through the nearest pass-through between them. */
 function corridorPath(floor, roomA, roomB){
   var pts = [{x:roomA.x,y:roomA.y}];
   roomA.via.forEach(function(p){ pts.push(p); });
 
   var endA = roomA.via[roomA.via.length-1];
   var endB = roomB.via[roomB.via.length-1];
-  if(endA.y !== endB.y && floor.passthroughs){
+  var sameLine = (endA.y === endB.y) || (endA.x === endB.x);
+  if(!sameLine && floor.passthroughs){
     var px = nearestPassthroughOn(floor.passthroughs, endA.x, endB.x);
     pts.push({x:px, y:endA.y});
     pts.push({x:px, y:endB.y});
