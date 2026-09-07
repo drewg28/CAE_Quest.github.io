@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAE Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EDF1;
+  --card:#FFFFFF;
+  --ink:#101A24;
+  --ink-2:#3E5061;
+  --line:#8FA1B2;
+  --line-soft:#C6D1DB;
+  --room:#FFFFFF;
+  --tile:#F0F3F6;
+  --focus:#0B5FD4;
+  --start:#1B4FD8;
+  --mid1:#0A8BA8;
+  --mid2:#12833F;
+  --mid3:#C07A00;
+  --end:#C62A20;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Atkinson Hyperlegible',Verdana,system-ui,sans-serif;
+  font-size:20px;
+  line-height:1.5;
+}
+.wrap{max-width:1400px;margin:0 auto;padding:26px 22px 80px}
+
+header{margin-bottom:22px}
+header h1{
+  font-size:46px;margin:0;font-weight:700;
+  display:flex;align-items:baseline;gap:0;line-height:1.1;
+}
+header h1 .logo{height:.72em;width:auto;display:block;margin-right:2px}
+header h1 span{color:var(--ink);letter-spacing:-.01em}
+header p{margin:4px 0 0;font-size:21px;color:var(--ink-2)}
+
+/* ---------- controls ---------- */
+.panel{
+  background:var(--card);border:3px solid var(--ink);border-radius:10px;
+  padding:22px 24px;margin-bottom:26px;
+}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media(max-width:880px){.row{grid-template-columns:1fr}}
+fieldset{border:0;margin:0;padding:0}
+legend,.qlabel{font-size:24px;font-weight:700;margin-bottom:10px;display:block}
+.floorpick{display:flex;gap:12px;margin-bottom:12px}
+.floorpick button{
+  flex:1;font-family:inherit;font-size:21px;font-weight:700;padding:14px 10px;
+  background:#fff;color:var(--ink);border:3px solid var(--line);border-radius:8px;cursor:pointer;
+}
+.floorpick button:hover{border-color:var(--ink)}
+.floorpick button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+select{
+  width:100%;font-family:inherit;font-size:23px;padding:15px 16px;
+  background:#fff;color:var(--ink);border:3px solid var(--line);border-radius:8px;
+}
+select optgroup{font-size:19px;font-weight:700;color:var(--ink-2);font-style:normal}
+select option{font-size:22px;font-weight:400;color:var(--ink)}
+:focus-visible{outline:4px solid var(--focus);outline-offset:2px}
+
+.actions{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:24px;padding-top:22px;border-top:3px solid var(--line-soft)}
+button.go{
+  font-family:inherit;font-size:24px;font-weight:700;padding:17px 40px;
+  background:var(--start);color:#fff;border:3px solid var(--start);border-radius:8px;cursor:pointer;
+}
+button.go:hover{background:#12369a;border-color:#12369a}
+label.big{
+  display:flex;align-items:center;gap:12px;font-size:20px;cursor:pointer;
+}
+label.big input{width:26px;height:26px;accent-color:var(--start)}
+button.plain{
+  font-family:inherit;font-size:19px;padding:14px 22px;background:#fff;color:var(--ink);
+  border:3px solid var(--line);border-radius:8px;cursor:pointer;margin-left:auto
+}
+button.plain:hover{border-color:var(--ink)}
+
+/* ---------- key ---------- */
+.key{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  background:var(--card);border:3px solid var(--ink);border-radius:10px;padding:16px 22px;margin-bottom:22px;
+}
+.key .item{display:flex;align-items:center;gap:9px;font-size:19px}
+.key .chip{width:26px;height:26px;border-radius:50%;border:3px solid var(--ink)}
+.key .barwrap{display:flex;align-items:center;gap:12px;margin-left:auto}
+.key .bar{width:230px;height:16px;border-radius:9px;border:2px solid var(--ink);
+  background:linear-gradient(90deg,var(--start),var(--mid1) 28%,var(--mid2) 52%,var(--mid3) 76%,var(--end))}
+@media(max-width:880px){.key .barwrap{margin-left:0}}
+
+/* ---------- floors ---------- */
+.floor{
+  background:var(--card);border:3px solid var(--ink);border-radius:10px;overflow:hidden;margin-bottom:26px;
+}
+.floor.hide{display:none}
+.floor .head{
+  display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:3px solid var(--ink);
+  background:#DCE4EC;flex-wrap:wrap
+}
+.floor .head h2{margin:0;font-size:28px}
+.floor .head .note{font-size:19px;color:var(--ink-2)}
+.floor svg{display:block;width:100%;height:auto;background:var(--card)}
+.mapbox{cursor:zoom-in}
+button.enlarge{
+  margin-left:auto;font-family:inherit;font-size:19px;font-weight:700;padding:11px 20px;
+  background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:8px;cursor:pointer
+}
+button.enlarge:hover{background:var(--ink);color:#fff}
+
+.viewer{position:fixed;inset:0;background:#fff;z-index:50;display:flex;flex-direction:column}
+.viewer[hidden]{display:none}
+.viewer-bar{
+  display:flex;align-items:center;gap:14px;padding:14px 20px;
+  border-bottom:3px solid var(--ink);background:#DCE4EC;flex-wrap:wrap
+}
+.viewer-bar strong{font-size:26px;margin-right:auto}
+.viewer-bar button{
+  font-family:inherit;font-size:20px;font-weight:700;padding:12px 24px;
+  background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:8px;cursor:pointer
+}
+.viewer-bar button.close{background:var(--ink);color:#fff}
+.viewer-body{flex:1;overflow:auto;padding:16px;-webkit-overflow-scrolling:touch}
+.viewer-body svg{display:block;height:auto}
+
+.slab-r{fill:#F7F9FB;stroke:#101A24;stroke-width:3.5}
+.tile-r{fill:var(--tile);stroke:#B4C1CD;stroke-width:1.5}
+.hall-r{fill:#DDE6EE;stroke:none}
+.tread{stroke:#8798A8;stroke-width:1.6}
+.tread-box{fill:none;stroke:#5D7285;stroke-width:2}
+.room-r{fill:var(--room);stroke:#3E5061;stroke-width:2.2}
+.room-r.hot{fill:#E4ECFF;stroke:#101A24;stroke-width:3.5}
+.sim-r{fill:#F1F4F7;stroke:#3E5061;stroke-width:2.4}
+.bridge{stroke:#3E5061;stroke-width:6;stroke-linecap:round}
+.rlabel{font-family:'Atkinson Hyperlegible',Verdana,sans-serif;fill:#101A24;font-size:21px;font-weight:700;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.rlabel.sm{font-size:17px}
+.rlabel.area{font-weight:400;fill:#3E5061;font-size:16px}
+.pin-t{font-family:'Atkinson Hyperlegible',Verdana,sans-serif;font-weight:700;font-size:19px;text-anchor:middle;fill:#fff}
+.callout{font-family:'Atkinson Hyperlegible',Verdana,sans-serif;font-weight:700;font-size:20px;fill:#101A24}
+
+.msg{background:#FFF3F2;border:3px solid var(--end);border-radius:10px;padding:20px 24px;font-size:21px;margin-bottom:26px}
+details.adv{margin-top:20px}
+details.adv summary{font-size:19px;cursor:pointer;color:var(--ink-2)}
+details.adv textarea{
+  width:100%;max-width:520px;height:120px;font-family:inherit;font-size:18px;padding:12px;
+  border:3px solid var(--line);border-radius:8px;margin-top:12px;display:block
+}
+@media print{
+  body{background:#fff}
+  .panel,.key .barwrap,button.plain{display:none}
+  .floor{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1><img class="logo" src="data:image/png;base64,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" alt="CAE"><span>Quest</span></h1>
+  <p>Pick where you are and where you need to go. The map shows you the way.</p>
+</header>
+
+<div class="panel">
+  <div class="row">
+    <fieldset>
+      <legend>Where are you now?</legend>
+      <div class="floorpick" id="fp1">
+        <button type="button" data-f="1" aria-pressed="true">Floor 1</button>
+        <button type="button" data-f="2" aria-pressed="false">Floor 2</button>
+      </div>
+      <label class="qlabel" for="r1" style="font-size:20px;font-weight:400;color:#3E5061">Your room or area</label>
+      <select id="r1"></select>
+    </fieldset>
+
+    <fieldset>
+      <legend>Where are you going?</legend>
+      <div class="floorpick" id="fp2">
+        <button type="button" data-f="1" aria-pressed="false">Floor 1</button>
+        <button type="button" data-f="2" aria-pressed="true">Floor 2</button>
+      </div>
+      <label class="qlabel" for="r2" style="font-size:20px;font-weight:400;color:#3E5061">Room or area you want</label>
+      <select id="r2"></select>
+    </fieldset>
+  </div>
+
+  <div class="actions">
+    <button class="go" id="run">Show my route</button>
+  </div>
+</div>
+
+<div class="key">
+  <span class="item"><span class="chip" style="background:var(--start)"></span> Start here</span>
+  <span class="item"><span class="chip" style="background:var(--end)"></span> Your destination</span>
+  <span class="item">Arrows point the way you walk</span>
+  <span class="barwrap"><span style="font-size:18px">Start</span><span class="bar"></span><span style="font-size:18px">Finish</span></span>
+</div>
+
+<div id="msg"></div>
+
+<section class="floor" id="floorbox1">
+  <div class="head"><h2>Floor 1</h2><span class="note" id="note1"></span>
+    <button class="enlarge" data-fl="1">Make this map bigger</button></div>
+  <div id="svg1" class="mapbox" data-fl="1"></div>
+</section>
+
+<section class="floor" id="floorbox2">
+  <div class="head"><h2>Floor 2</h2><span class="note" id="note2"></span>
+    <button class="enlarge" data-fl="2">Make this map bigger</button></div>
+  <div id="svg2" class="mapbox" data-fl="2"></div>
+</section>
+
+</div>
+
+<div class="viewer" id="viewer" hidden>
+  <div class="viewer-bar">
+    <strong id="viewertitle">Floor 1</strong>
+    <button id="zoomout">Smaller</button>
+    <button id="zoomin">Bigger</button>
+    <button id="viewerclose" class="close">Close</button>
+  </div>
+  <div class="viewer-body" id="viewerbody"></div>
+</div>
+
+<script>
+/* ============ FACILITY MODEL (traced from the two floor plans) ============ */
+const FLOORS = {
+  1:{
+    name:'Floor 1', vb:'0 0 1100 450', scale:0.268,
+    slab:'55,20 1055,20 1055,160 975,160 975,415 790,415 790,306 835,306 835,178 705,178 705,196 55,196',
+    tiles:[{x:835,y:196,w:140,h:110}],
+    halls:[{x:55,y:170,w:650,h:26},{x:683,y:83,w:22,h:113},
+           {x:683,y:83,w:292,h:22},{x:862,y:105,w:113,h:97}],
+    treads:[{x:805,y:310,w:62,h:100}],
+    extras:[],
+    rooms:[
+      {id:'121',x:115,y:30,w:95,h:140,door:'d121'},
+      {id:'120',x:212,y:30,w:70,h:140,door:'d120'},
+      {id:'119',x:284,y:30,w:70,h:140,door:'d119'},
+      {id:'118',x:400,y:30,w:70,h:140,door:'d118'},
+      {id:'117',x:472,y:30,w:70,h:140,door:'d117'},
+      {id:'116',x:544,y:30,w:139,h:140,door:'d116'},
+      {id:'113',x:705,y:105,w:55,h:22,door:'d113',sm:1},
+      {id:'114',x:705,y:129,w:55,h:24,door:'d114',sm:1},
+      {id:'115',x:705,y:155,w:55,h:23,door:'d115',sm:1},
+      {id:'Conference Room',short:'Conference',x:765,y:105,w:70,h:73,door:'conf',area:1},
+      {id:'111',x:683,y:25,w:52,h:58,door:'d111',sm:1},
+      {id:'110',x:737,y:25,w:52,h:58,door:'d110',sm:1},
+      {id:'109',x:791,y:25,w:52,h:58,door:'d109',sm:1},
+      {id:'108',x:845,y:25,w:52,h:58,door:'d108',sm:1},
+      {id:'107',x:912,y:42,w:61,h:41,door:'d107',sm:1},
+      {id:'Restrooms',x:975,y:25,w:75,h:130,door:'nce',area:1,sm:1},
+      {id:'Lobby',x:835,y:196,w:140,h:110,door:'lobby',area:1,ghost:1},
+      {id:'Stairs',x:805,y:310,w:62,h:100,door:'stairs1',area:1,sm:1},
+      {id:'Elevator',x:867,y:345,w:60,h:70,door:'elev1',area:1,sm:1}
+    ],
+    nodes:{
+      d121:[160,183],d120:[247,183],d119:[319,183],d118:[435,183],
+      d117:[507,183],d116:[613,183],corner:[695,183],
+      d115:[695,166],d114:[695,141],d113:[695,116],ncw:[695,92],
+      d111:[709,92],d110:[763,92],conf:[800,92],d109:[817,92],d108:[871,92],npass:[890,92],
+      d107:[942,92],nce:[966,92],ndown:[890,160],lobbyne:[890,205],lobby:[890,250],
+      core1:[890,330],stairs1:[836,330],elev1:[890,360]
+    },
+    chains:[
+      {axis:'x',ids:['d121','d120','d119','d118','d117','d116','corner']},
+      {axis:'y',ids:['ncw','d113','d114','d115','corner']},
+      {axis:'x',ids:['ncw','d111','d110','conf','d109','d108','npass','d107','nce']},
+      {axis:'y',ids:['npass','ndown','lobbyne','lobby']},
+      {axis:'y',ids:['lobby','core1']},
+      {axis:'x',ids:['stairs1','core1']}
+    ],
+    edges:[['core1','elev1']]
+  },
+  2:{
+    name:'Floor 2', vb:'0 0 1250 730', scale:0.242,
+    slab:'45,185 1230,185 1230,270 1075,270 1075,600 930,600 930,695 765,695 765,600 765,440 45,440',
+    tiles:[{x:45,y:185,w:1185,h:82},{x:765,y:440,w:165,h:255},{x:905,y:270,w:170,h:330}],
+    halls:[{x:45,y:320,w:885,h:30},{x:892,y:267,w:38,h:345},
+           {x:220,y:267,w:32,h:53},{x:442,y:267,w:21,h:53},{x:717,y:267,w:26,h:53}],
+    treads:[{x:770,y:600,w:60,h:92},
+            {x:222,y:270,w:28,h:48},{x:444,y:270,w:17,h:48},
+            {x:719,y:270,w:22,h:48},{x:894,y:270,w:34,h:48}],
+    extras:[],
+    rooms:[
+      {id:'E190',x:95,y:30,w:90,h:105,door:'dE190',sim:1,bridge:[137,135,137,190]},
+      {id:'737 #2',x:255,y:30,w:90,h:105,door:'d737b',sim:1,bridge:[297,135,297,190]},
+      {id:'E170',x:585,y:30,w:95,h:105,door:'dE170',sim:1,bridge:[630,135,630,190]},
+      {id:'737 #1',x:935,y:30,w:95,h:105,door:'d737a',sim:1,bridge:[982,135,982,190]},
+      {id:'320 #1',x:1100,y:30,w:92,h:105,door:'d320',sim:1,bridge:[1120,135,1120,190]},
+      {id:'777',x:1100,y:300,w:92,h:95,door:'d777',sim:1,bridge:[1170,300,1170,267]},
+      {id:'238',x:60,y:265,w:55,h:55,door:'d238',sm:1},{id:'237',x:118,y:265,w:52,h:55,door:'d237',sm:1},
+      {id:'236',x:173,y:265,w:45,h:55,door:'d236',sm:1},{id:'234',x:255,y:265,w:48,h:55,door:'d234',sm:1},
+      {id:'233',x:305,y:265,w:45,h:55,door:'d233',sm:1},{id:'232',x:352,y:265,w:43,h:55,door:'d232',sm:1},
+      {id:'231',x:397,y:265,w:43,h:55,door:'d231',sm:1},{id:'229',x:465,y:265,w:75,h:55,door:'d229',sm:1},
+      {id:'228',x:542,y:265,w:43,h:55,door:'d228',sm:1},{id:'227',x:587,y:265,w:43,h:55,door:'d227',sm:1},
+      {id:'226',x:632,y:265,w:40,h:55,door:'d226',sm:1},{id:'225',x:674,y:265,w:41,h:55,door:'d225',sm:1},
+      {id:'223',x:745,y:265,w:48,h:55,door:'d223',sm:1},{id:'222',x:795,y:265,w:45,h:55,door:'d222',sm:1},
+      {id:'221',x:842,y:265,w:48,h:55,door:'d221',sm:1},
+      {id:'216',x:60,y:350,w:73,h:85,door:'d216'},{id:'215',x:138,y:350,w:67,h:85,door:'d215'},
+      {id:'214',x:210,y:350,w:67,h:85,door:'d214'},{id:'213',x:280,y:350,w:97,h:85,door:'d213'},
+      {id:'212',x:380,y:350,w:75,h:85,door:'d212'},{id:'211',x:458,y:350,w:82,h:85,door:'d211'},
+      {id:'210',x:545,y:350,w:75,h:85,door:'d210'},{id:'209',x:622,y:350,w:78,h:85,door:'d209'},
+      {id:'208',x:705,y:350,w:75,h:85,door:'d208'},{id:'207',x:785,y:350,w:105,h:85,door:'d207'},
+      {id:'204',x:930,y:265,w:140,h:175,door:'d204'},
+      {id:'219',x:938,y:272,w:48,h:48,door:'d219',sm:1},
+      {id:'203',x:940,y:445,w:60,h:50,door:'d203',sm:1},
+      {id:'204A',x:1005,y:445,w:65,h:50,door:'d204a',sm:1},
+      {id:'Restrooms',x:940,y:500,w:130,h:95,door:'drest2',area:1,sm:1},
+      {id:'Client Lounge',x:765,y:445,w:127,h:75,door:'dlounge',area:1,sm:1},
+      {id:'Breakroom',x:765,y:525,w:127,h:65,door:'dbreak',area:1,sm:1},
+      {id:'Stairs',x:770,y:600,w:60,h:92,door:'stairs2',area:1,sm:1},
+      {id:'Elevator',x:830,y:625,w:60,h:70,door:'elev2',area:1,sm:1}
+    ],
+    nodes:{
+      dE190:[137,228],passwN:[236,228],stairBN:[452,228],d737b:[297,228],dE170:[630,228],
+      stairCN:[730,228],passeN:[912,228],d737a:[982,228],d320:[1120,228],d777:[1170,228],
+      passwS:[236,335],stairBS:[452,335],stairCS:[730,335],
+      d238:[87,335],d216:[96,335],d237:[144,335],d215:[171,335],d236:[195,335],d214:[243,335],
+      d234:[279,335],d233:[327,335],d213:[328,335],d232:[373,335],d231:[418,335],d212:[417,335],
+      d211:[499,335],d229:[502,335],d228:[563,335],d210:[582,335],d227:[608,335],d209:[661,335],
+      d226:[652,335],d225:[694,335],d208:[742,335],d223:[769,335],d222:[817,335],d207:[837,335],
+      d221:[866,335],cross:[912,335],d219:[1005,296],n204:[1005,390],
+      d204:[912,390],d204a:[912,452],d203:[912,470],dlounge:[912,482],drest2:[912,545],
+      dbreak:[912,557],core2:[912,660],elev2:[860,660],stairs2:[800,660]
+    },
+    chains:[
+      {axis:'x',ids:['dE190','passwN','stairBN','d737b','dE170','stairCN','passeN','d737a','d320','d777']},
+      {axis:'y',ids:['passwN','passwS']},
+      {axis:'y',ids:['stairBN','stairBS']},
+      {axis:'y',ids:['stairCN','stairCS']},
+      {axis:'x',ids:['d238','d216','d237','d215','d236','passwS','d214','d234','d233','d213','d212','d232','d231','stairBS','d211','d229','d228','d210','d227','d226','d209','d225','stairCS','d208','d223','d222','d207','d221','cross']},
+      {axis:'y',ids:['passeN','cross','d204','d204a','d203','dlounge','drest2','dbreak','core2']},
+      {axis:'x',ids:['stairs2','elev2','core2']}
+    ],
+    edges:[['d204','n204'],['n204','d219']]
+  }
+};
+const LINKS=[
+  ['elev1',1,'elev2',2,'elevator',24],
+  ['stairs1',1,'stairs2',2,'stairs',36]
+];
+
+/* ============ GRAPH ============ */
+const N={},ADJ={},ROOM={};
+const gid=(f,i)=>f+':'+i;
+function addEdge(a,b,c){(ADJ[a]=ADJ[a]||[]).push({to:b,c});(ADJ[b]=ADJ[b]||[]).push({to:a,c});}
+for(const fk of [1,2]){
+  const F=FLOORS[fk];
+  for(const [id,v] of Object.entries(F.nodes)) N[gid(fk,id)]={id,fl:fk,x:v[0],y:v[1]};
+  const dist=(a,b)=>Math.hypot(N[a].x-N[b].x,N[a].y-N[b].y)*F.scale;
+  for(const ch of F.chains){
+    const ids=[...ch.ids].sort((a,b)=>ch.axis==='x'?F.nodes[a][0]-F.nodes[b][0]:F.nodes[a][1]-F.nodes[b][1]);
+    for(let i=0;i<ids.length-1;i++){const a=gid(fk,ids[i]),b=gid(fk,ids[i+1]);if(a!==b)addEdge(a,b,Math.max(dist(a,b),.4));}
+  }
+  for(const e of F.edges)addEdge(gid(fk,e[0]),gid(fk,e[1]),dist(gid(fk,e[0]),gid(fk,e[1])));
+  for(const r of F.rooms)
+    ROOM[gid(fk,r.id)]={...r,fl:fk,cx:r.x+r.w/2,cy:r.y+r.h/2,doorG:gid(fk,r.door),label:r.short||r.id};
+}
+function route(s,e,stepFree){
+  const adj={};for(const [k,v] of Object.entries(ADJ))adj[k]=v.slice();
+  for(const L of LINKS){
+    if(stepFree&&L[4]==='stairs')continue;
+    const a=gid(L[1],L[0]),b=gid(L[3],L[2]);
+    (adj[a]=adj[a]||[]).push({to:b,c:L[5]});(adj[b]=adj[b]||[]).push({to:a,c:L[5]});
+  }
+  const D={},P={},S={};D[s]=0;const Q=[[0,s]];
+  while(Q.length){
+    Q.sort((a,b)=>a[0]-b[0]);const [d,u]=Q.shift();
+    if(S[u])continue;S[u]=1;if(u===e)break;
+    for(const x of (adj[u]||[])){const nd=d+x.c;
+      if(D[x.to]===undefined||nd<D[x.to]-1e-9){D[x.to]=nd;P[x.to]=u;Q.push([nd,x.to]);}}
+  }
+  if(D[e]===undefined)return null;
+  const p=[];let c=e;while(c!==undefined){p.unshift(c);c=P[c];}
+  return p;
+}
+
+/* ============ COLOR ============ */
+const STOPS=[[0,[27,79,216]],[.28,[10,139,168]],[.52,[18,131,63]],[.76,[192,122,0]],[1,[198,42,32]]];
+function spectrum(t){
+  t=Math.max(0,Math.min(1,t));
+  for(let i=0;i<STOPS.length-1;i++){
+    const [p0,c0]=STOPS[i],[p1,c1]=STOPS[i+1];
+    if(t>=p0&&t<=p1){const k=(t-p0)/(p1-p0||1);
+      return 'rgb('+c0.map((v,j)=>Math.round(v+(c1[j]-v)*k)).join(',')+')';}
+  }
+  return 'rgb(198,42,32)';
+}
+const isNum=id=>/^[0-9]+[A-Z]?$/.test(id);
+const nameOf=r=>(isNum(r.id)?'Room ':'')+r.label;
+const REDUCED=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ============ MAP ============ */
+function renderFloor(fk,path,oG,dG){
+  const F=FLOORS[fk];
+  const hot=new Set();
+  if(ROOM[oG]&&ROOM[oG].fl===fk)hot.add(ROOM[oG].id);
+  if(ROOM[dG]&&ROOM[dG].fl===fk)hot.add(ROOM[dG].id);
+  let s=`<svg viewBox="${F.vb}" role="img" aria-label="${F.name} floor plan with the route drawn">`;
+  s+=`<polygon class="slab-r" points="${F.slab}"/>`;
+  for(const t of F.tiles)s+=`<rect class="tile-r" x="${t.x}" y="${t.y}" width="${t.w}" height="${t.h}"/>`;
+  for(const h of (F.halls||[]))s+=`<rect class="hall-r" x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}"/>`;
+  for(const t of (F.treads||[])){
+    const n=Math.max(4,Math.round(t.h/13));
+    for(let i=1;i<n;i++){
+      const y=t.y+t.h*i/n;
+      s+=`<line class="tread" x1="${t.x+2}" y1="${y}" x2="${t.x+t.w-2}" y2="${y}"/>`;
+    }
+    s+=`<rect class="tread-box" x="${t.x}" y="${t.y}" width="${t.w}" height="${t.h}"/>`;
+  }
+  for(const e of (F.extras||[]))s+=`<rect class="slab-r" x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}"/>`;
+  for(const r of F.rooms){
+    if(r.bridge)s+=`<line class="bridge" x1="${r.bridge[0]}" y1="${r.bridge[1]}" x2="${r.bridge[2]}" y2="${r.bridge[3]}"/>`;
+    const cls=r.sim?'sim-r':(r.ghost?'tile-r':'room-r'+(hot.has(r.id)?' hot':''));
+    s+=`<rect class="${cls}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="${r.sim?12:3}"/>`;
+    const lc='rlabel'+(r.area||r.ghost?' area':'')+(r.sm?' sm':'');
+    const lbl=r.short||r.id;
+    if(r.area&&lbl.length>10){
+      const p=lbl.split(' ');
+      s+=`<text class="${lc}" x="${r.x+r.w/2}" y="${r.y+r.h/2-9}">${p[0]}</text>`;
+      s+=`<text class="${lc}" x="${r.x+r.w/2}" y="${r.y+r.h/2+10}">${p.slice(1).join(' ')}</text>`;
+    }else s+=`<text class="${lc}" x="${r.x+r.w/2}" y="${r.y+r.h/2}">${lbl}</text>`;
+  }
+
+  if(path&&path.length>1){
+    const all=[];let tot=0;
+    for(let i=0;i<path.length-1;i++){
+      const a=N[path[i]],b=N[path[i+1]];
+      const same=a.fl===b.fl;
+      const d=same?Math.hypot(a.x-b.x,a.y-b.y)*FLOORS[a.fl].scale:0;
+      all.push({a,b,d,same});tot+=d;
+    }
+    const segs=[];let cum=0;
+    for(const sg of all){const t0=tot?cum/tot:0;cum+=sg.d;const t1=tot?cum/tot:1;
+      if(sg.same&&sg.a.fl===fk)segs.push({...sg,tm:(t0+t1)/2});}
+    for(const sg of segs)
+      s+=`<line x1="${sg.a.x}" y1="${sg.a.y}" x2="${sg.b.x}" y2="${sg.b.y}" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round" opacity=".95"/>`;
+    for(const sg of segs)
+      s+=`<line x1="${sg.a.x}" y1="${sg.a.y}" x2="${sg.b.x}" y2="${sg.b.y}" stroke="${spectrum(sg.tm)}" stroke-width="9" stroke-linecap="round"/>`;
+    for(const sg of segs){
+      const len=Math.hypot(sg.b.x-sg.a.x,sg.b.y-sg.a.y);if(len<55)continue;
+      const mx=(sg.a.x+sg.b.x)/2,my=(sg.a.y+sg.b.y)/2;
+      const ux=(sg.b.x-sg.a.x)/len,uy=(sg.b.y-sg.a.y)/len;
+      s+=`<path d="M ${mx-ux*7-uy*7} ${my-uy*7+ux*7} L ${mx+ux*8} ${my+uy*8} L ${mx-ux*7+uy*7} ${my-uy*7-ux*7}" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    // arrows that travel along the route
+    if(!REDUCED){
+      const runs=[];let cur=[];
+      for(const p of path){
+        if(N[p].fl===fk)cur.push(N[p]);
+        else{if(cur.length>1)runs.push(cur);cur=[]}
+      }
+      if(cur.length>1)runs.push(cur);
+      for(const run of runs){
+        const pts=run.filter((p,i)=>i===0||Math.hypot(p.x-run[i-1].x,p.y-run[i-1].y)>1);
+        if(pts.length<2)continue;
+        let len=0;
+        for(let i=0;i<pts.length-1;i++)len+=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);
+        const d='M '+pts.map(p=>p.x+' '+p.y).join(' L ');
+        const dur=Math.max(5,len/95).toFixed(1);
+        const count=Math.max(2,Math.min(9,Math.round(len/170)));
+        for(let i=0;i<count;i++){
+          s+=`<g><circle r="14" fill="#FFFFFF" stroke="#101A24" stroke-width="3"/>`+
+             `<path d="M -4 -6 L 5 0 L -4 6" fill="none" stroke="#101A24" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`+
+             `<animateMotion path="${d}" dur="${dur}s" begin="${(-i*dur/count).toFixed(2)}s" repeatCount="indefinite" rotate="auto"/></g>`;
+        }
+      }
+    }
+    // stairs / elevator marker
+    for(let i=0;i<path.length-1;i++){
+      const a=N[path[i]],b=N[path[i+1]];
+      if(a.fl===b.fl)continue;
+      const here=a.fl===fk?a:(b.fl===fk?b:null);if(!here)continue;
+      const up=b.fl>a.fl, onThis=a.fl===fk;
+      const col=spectrum(.5);
+      s+=`<circle cx="${here.x}" cy="${here.y}" r="20" fill="#fff" stroke="${col}" stroke-width="5"/>`;
+      s+=`<text class="rlabel" x="${here.x}" y="${here.y+1}" fill="${col}" font-size="24">${(onThis===up)?'\u2191':'\u2193'}</text>`;
+      s+=callout(here,onThis?('Go '+(up?'up':'down')+' to Floor '+(onThis?b.fl:a.fl)):'You arrive here',col,fk,34);
+    }
+    const first=N[path[0]],last=N[path[path.length-1]];
+    if(first.fl===fk){
+      s+=pin(first,spectrum(0));
+      s+=callout(first,'Start: '+nameOf(ROOM[oG]),spectrum(0),fk,30);
+    }
+    if(last.fl===fk){
+      s+=pin(last,spectrum(1));
+      s+=callout(last,'Finish: '+nameOf(ROOM[dG]),spectrum(1),fk,30);
+    }
+  }
+  s+='</svg>';
+  return s;
+}
+function pin(n,col){
+  return `<circle cx="${n.x}" cy="${n.y}" r="19" fill="#fff" stroke="${col}" stroke-width="5"/>
+          <circle cx="${n.x}" cy="${n.y}" r="9" fill="${col}"/>`;
+}
+function callout(n,text,col,fk,off){
+  const H=parseFloat(FLOORS[fk].vb.split(' ')[3]);
+  const W=parseFloat(FLOORS[fk].vb.split(' ')[2]);
+  const below=n.y<H*0.55;
+  const y=below?n.y+off+18:n.y-off;
+  const w=text.length*11+26;
+  let x=n.x-w/2; x=Math.max(6,Math.min(W-w-6,x));
+  return `<g><rect x="${x}" y="${y-22}" width="${w}" height="32" rx="16" fill="#fff" stroke="${col}" stroke-width="3.5"/>
+   <text class="callout" x="${x+w/2}" y="${y-1}" text-anchor="middle" fill="${col}">${text}</text></g>`;
+}
+
+/* ============ UI ============ */
+const $=i=>document.getElementById(i);
+let F1=1,F2=2;
+/* Dropdown labels only — the map keeps its real room numbers */
+const DISPLAY={
+  '2:215':'E190 Brief',       '2:216':'E190 Debrief',
+  '2:221':'A320 Brief',       '2:222':'A320 Debrief',
+  '2:223':'777 Brief',        '2:225':'777 Debrief',
+  '2:226':'737_Max_1 Brief',  '2:227':'737_Max_1 Debrief',
+  '2:232':'E170 Brief',       '2:233':'E170 Debrief',
+  '2:234':'737_Max_2 Brief',  '2:236':'737_Max_2 Debrief',
+  '2:320 #1':'SIM A320',      '2:777':'SIM 777',
+  '2:737 #1':'SIM 737_Max_1', '2:737 #2':'SIM 737_Max_2',
+  '2:E170':'SIM E170',        '2:E190':'SIM E190'
+};
+const optionName=(k,r)=>DISPLAY[k]||nameOf(r);
+
+function roomsFor(fl){
+  return Object.entries(ROOM).filter(([k,r])=>r.fl==fl).sort((a,b)=>{
+    const A=a[1],B=b[1],an=isNum(A.id),bn=isNum(B.id);
+    if(an&&bn)return parseInt(A.id)-parseInt(B.id);
+    if(an)return -1;if(bn)return 1;return A.label.localeCompare(B.label);
+  });
+}
+function fill(sel,fl,keep){
+  sel.innerHTML='';
+  const g={sim:[],brief:[],debrief:[],room:[],area:[]};
+  for(const [k,r] of roomsFor(fl)){
+    const lbl=optionName(k,r);
+    if(lbl.startsWith('SIM ')) g.sim.push([k,lbl,lbl.slice(4)]);
+    else if(lbl.endsWith(' Brief')) g.brief.push([k,lbl,lbl.slice(0,-6)]);
+    else if(lbl.endsWith(' Debrief')) g.debrief.push([k,lbl,lbl.slice(0,-8)]);
+    else if(isNum(r.id)) g.room.push([k,lbl,lbl]);
+    else g.area.push([k,lbl,lbl]);
+  }
+  const byFleet=(a,b)=>a[2].localeCompare(b[2],undefined,{numeric:true,sensitivity:'base'});
+  g.sim.sort(byFleet);g.brief.sort(byFleet);g.debrief.sort(byFleet);
+  const groups=[['Simulators',g.sim],['Brief rooms',g.brief],['Debrief rooms',g.debrief],
+                [g.sim.length?'Other rooms':'Rooms',g.room],['Areas',g.area]];
+  for(const [name,items] of groups){
+    if(!items.length)continue;
+    const og=document.createElement('optgroup');og.label=name;
+    for(const [k,lbl] of items){
+      const o=document.createElement('option');o.value=k;o.textContent=lbl;og.appendChild(o);
+    }
+    sel.appendChild(og);
+  }
+  if(keep&&[...sel.options].some(o=>o.value===keep))sel.value=keep;
+}
+function wireFloor(boxId,setter){
+  $(boxId).addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    [...$(boxId).querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed',x===b));
+    setter(+b.dataset.f);
+  });
+}
+wireFloor('fp1',f=>{F1=f;fill($('r1'),f);if(f===1)$('r1').value='1:Lobby';go()});
+wireFloor('fp2',f=>{F2=f;fill($('r2'),f);go()});
+fill($('r1'),1);fill($('r2'),2);
+$('r1').value='1:Lobby';$('r2').value='2:229';
+$('run').onclick=go;$('r1').onchange=go;$('r2').onchange=go;
+
+/* ---- enlarge viewer ---- */
+let zoomW=1600, zoomFl=1;
+function paintViewer(){
+  const src=$('svg'+zoomFl).innerHTML;
+  $('viewerbody').innerHTML=src;
+  const svg=$('viewerbody').querySelector('svg');
+  if(svg){svg.style.width=zoomW+'px';svg.style.maxWidth='none';}
+  $('viewertitle').textContent='Floor '+zoomFl;
+}
+function openViewer(fl){
+  zoomFl=fl;
+  zoomW=Math.max(1300,Math.round(window.innerWidth*1.6));
+  $('viewer').hidden=false;
+  document.body.style.overflow='hidden';
+  paintViewer();
+  $('viewerclose').focus();
+}
+function closeViewer(){$('viewer').hidden=true;document.body.style.overflow='';}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.enlarge');
+  if(b){openViewer(+b.dataset.fl);return}
+  const m=e.target.closest('.mapbox');
+  if(m){openViewer(+m.dataset.fl)}
+});
+$('viewerclose').onclick=closeViewer;
+$('zoomin').onclick=()=>{zoomW=Math.min(5200,Math.round(zoomW*1.35));paintViewer()};
+$('zoomout').onclick=()=>{zoomW=Math.max(700,Math.round(zoomW/1.35));paintViewer()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('viewer').hidden)closeViewer()});
+
+function go(){
+  const oG=$('r1').value,dG=$('r2').value;
+  const o=ROOM[oG],d=ROOM[dG];
+  const msg=$('msg');msg.innerHTML='';
+  if(oG===dG){
+    msg.innerHTML='<div class="msg" style="background:#F0F5FF;border-color:#1B4FD8">You are already at '+nameOf(d)+'.</div>';
+    $('svg1').innerHTML=renderFloor(1,null,oG,dG);$('svg2').innerHTML=renderFloor(2,null,oG,dG);
+    $('floorbox1').className='floor'+(o.fl===1?'':' hide');
+    $('floorbox2').className='floor'+(o.fl===2?'':' hide');
+    return;
+  }
+  const p=route(o.doorG,d.doorG,false);
+  if(!p){
+    msg.innerHTML='<div class="msg">No route found between these two places.</div>';
+    return;
+  }
+  $('svg1').innerHTML=renderFloor(1,p,oG,dG);
+  $('svg2').innerHTML=renderFloor(2,p,oG,dG);
+  const on1=p.some(x=>N[x].fl===1),on2=p.some(x=>N[x].fl===2);
+  $('floorbox1').className='floor'+(on1?'':' hide');
+  $('floorbox2').className='floor'+(on2?'':' hide');
+  if(on1&&on2){
+    const useElev=p.some(x=>N[x].id.startsWith('elev'));
+    const startFirst=o.fl===1;
+    $('note1').textContent=startFirst?'Start here, then take the '+(useElev?'elevator':'stairs')+' up.':'Finish on this floor.';
+    $('note2').textContent=startFirst?'Finish on this floor.':'Start here, then take the '+(useElev?'elevator':'stairs')+' down.';
+  }else{$('note1').textContent='';$('note2').textContent='';}
+  if(!$('viewer').hidden)paintViewer();
+}
+go();
+</script>
+</body>
+</html>
