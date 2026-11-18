@@ -341,6 +341,21 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
 /* the needle swings; the letter rides round with it but stays the right way up */
 .rose #rosel{transform:rotate(calc(-1 * var(--nrot,0deg)));
   transform-box:view-box;transform-origin:26px 8px}
+.fbar{position:absolute;left:12px;right:12px;bottom:14px;z-index:42;background:var(--card);
+  border:1px solid var(--line);border-radius:16px;padding:12px 14px;
+  box-shadow:0 10px 26px rgba(6,16,61,.26)}
+.fbar[hidden]{display:none}
+.ftxt{font:800 16px Inter,system-ui,sans-serif;color:var(--text);line-height:1.3}
+.facts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.facts button{appearance:none;cursor:pointer;font:700 13px Inter,system-ui,sans-serif;
+  padding:9px 13px;border-radius:10px;min-height:38px;border:1px solid var(--line);
+  background:var(--paper);color:var(--text)}
+.facts button[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+.stage svg #mehere .medot{fill:#1a66ff}
+.stage svg #mehere .mering{fill:none;stroke:#fff}
+.stage svg #mehere .mehalo{fill:#1a66ff;opacity:.17}
+body.following .rose{bottom:112px}
+body.following .cmsg{bottom:112px}
 .cmsg{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:40;
   background:var(--heading);color:#fff;font-size:13.5px;font-weight:700;line-height:1.35;
   padding:11px 17px;border-radius:16px;box-shadow:0 8px 22px rgba(6,16,61,.32);
@@ -553,6 +568,7 @@ body.scanned-trip .locbar{display:none}
 </div></div>
 <div class="viewer" id="viewer" hidden>
   <div class="viewer-bar"><strong id="vtitle">Floor</strong><span id="vstep" class="vstep"></span>
+    <button id="vfollow" aria-pressed="false" title="Count your steps along the route">Follow</button>
     <button id="vcomp" aria-pressed="false" title="Turn the plan to the way you are facing">Compass</button>
     <button id="vloo" aria-pressed="false" title="Show the way to the nearest restroom on this floor">Restroom</button>
     <button id="zoomout">&minus;</button><button id="zoomfit">Fit</button><button id="zoomin">+</button>
@@ -589,6 +605,14 @@ body.scanned-trip .locbar{display:none}
       <path class="sd" d="M26 40 L21.6 26 L26 26 L30.4 26 Z"/>
       <g id="rosel"><text x="26" y="8.6" text-anchor="middle">N</text></g>
     </g></svg></div>
+  <div class="fbar" id="fbar" hidden>
+    <div class="ftxt" id="ftxt">Counting your steps&hellip;</div>
+    <div class="facts">
+      <button id="fhere" type="button">I am here</button>
+      <button id="fdone" type="button">Arrived</button>
+      <button id="fstop" type="button">Stop</button>
+    </div>
+  </div>
   <div class="cmsg" id="cmsg" hidden aria-live="polite"></div>
   <div class="rotate" aria-hidden="true"><div class="rotebox">
     <svg viewBox="-1 0 68 44" width="74" height="48">
@@ -1651,6 +1675,7 @@ function cmsg(t){
 // Where the reader is standing on this floor: the first step of this leg.
 function anchorOf(fk){
   const f=DATA.floors[fk];
+  if(FOLLOW&&FLINE&&fk===zfk){const q=atDist(FDIST);return [q.x,q.y];}
   if(LASTR&&LASTR.per&&LASTR.per[fk]&&LASTR.per[fk].length){
     const L=LASTR.per[fk][0],n=f.nav,c0=L.path&&L.path[0];
     if(c0)return toImg(fk,c0[1]*n.cell+n.cell/2,c0[0]*n.cell+n.cell/2);
@@ -1692,6 +1717,132 @@ function compassOn(){
   });
 }
 
+// ---- Follow me ---------------------------------------------------
+const SKEY='caequest-stride';
+let FOLLOW=false, FDIST=0, FLINE=null, FSTEPS=0, FARM=false, MWATCH=false;
+let SPU=0, AMAG=9.8, APEAK=false, ALAST=0;
+try{const v=localStorage.getItem(SKEY); if(v)SPU=+v||0;}catch(e){}
+
+// the same simplified line the route is actually drawn with, so the dot
+// sits on the stripe rather than near it
+function routeLine(fk){
+  const f=DATA.floors[fk],U=f.iw/100,n=f.nav;
+  const legs=(LASTR&&LASTR.per&&LASTR.per[fk])||[];
+  const out=[];
+  for(const L of legs){
+    const pts=L.path.map(([r,c])=>toImg(fk,c*n.cell+n.cell/2,r*n.cell+n.cell/2));
+    if(pts.length<2)continue;
+    const sp=[pts[0]];
+    for(let i=1;i<pts.length-1;i++){
+      const a=sp[sp.length-1],b=pts[i],c2=pts[i+1];
+      if(Math.abs((b[0]-a[0])*(c2[1]-a[1])-(b[1]-a[1])*(c2[0]-a[0]))>U*U*0.3)sp.push(b);
+    }
+    sp.push(pts[pts.length-1]);
+    for(const q of sp){
+      const e=out[out.length-1];
+      if(!e||Math.hypot(q[0]-e[0],q[1]-e[1])>0.5)out.push(q);
+    }
+  }
+  if(out.length<2)return null;
+  const cum=[0]; let t=0;
+  for(let i=1;i<out.length;i++){t+=Math.hypot(out[i][0]-out[i-1][0],out[i][1]-out[i-1][1]);cum.push(t);}
+  return {p:out,cum,len:t};
+}
+function stepUnits(){ return SPU>0?SPU:DATA.floors[zfk].iw/138; }   // about 0.7 m
+function atDist(d){
+  const L=FLINE; d=Math.max(0,Math.min(L.len,d));
+  let i=1; while(i<L.cum.length-1&&L.cum[i]<d)i++;
+  const a=L.p[i-1],b=L.p[i],s=(L.cum[i]-L.cum[i-1])||1,k=(d-L.cum[i-1])/s;
+  return {x:a[0]+(b[0]-a[0])*k,y:a[1]+(b[1]-a[1])*k,
+          ang:Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI};
+}
+function nearestOn(x,y){
+  const L=FLINE; let best=0,bd=Infinity;
+  for(let i=1;i<L.p.length;i++){
+    const a=L.p[i-1],b=L.p[i],dx=b[0]-a[0],dy=b[1]-a[1],s=(dx*dx+dy*dy)||1;
+    const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/s));
+    const px=a[0]+dx*t,py=a[1]+dy*t,d=(px-x)**2+(py-y)**2;
+    if(d<bd){bd=d;best=L.cum[i-1]+t*Math.hypot(dx,dy);}
+  }
+  return best;
+}
+function drawMe(){
+  const sv=$('vbody').querySelector('svg');
+  if(!sv||!FLINE)return;
+  const T=DATA.floors[zfk].ih/100,q=atDist(FDIST);
+  let g=sv.querySelector('#mehere');
+  if(!g){
+    g=document.createElementNS('http://www.w3.org/2000/svg','g'); g.id='mehere';
+    g.innerHTML='<circle class="mehalo" r="'+(T*4.4).toFixed(1)+'"/>'
+               +'<circle class="mering" r="'+(T*1.55).toFixed(1)+'" stroke-width="'+(T*0.62).toFixed(2)+'"/>'
+               +'<circle class="medot" r="'+(T*1.30).toFixed(1)+'"/>';
+    sv.appendChild(g);
+  }
+  g.setAttribute('transform','translate('+q.x.toFixed(1)+' '+q.y.toFixed(1)+')');
+  fSay();
+}
+function fSay(){
+  const left=Math.max(0,FLINE.len-FDIST), n=Math.round(left/stepUnits());
+  const last=ROUTE.indexOf(zfk)===ROUTE.length-1;
+  $('ftxt').textContent = FARM ? 'Tap the map where you are standing.'
+    : n<=2 ? (last?'You should be there.':'You should be at the stairs or the lift — tap Next when you are on the other floor.')
+    : 'About '+(n<12?n:Math.round(n/5)*5)+' steps to go'+(FSTEPS?'  ·  '+FSTEPS+' counted':'');
+}
+function recentreMe(){
+  if(!FOLLOW||!FLINE)return;
+  if(COMPASS)return fitRot();                    // the turning view pins on the dot already
+  const b=$('vbody'),f=DATA.floors[zfk],k=zw/f.iw,q=atDist(FDIST);
+  b.scrollLeft=q.x*k-b.clientWidth/2;
+  b.scrollTop =q.y*k-b.clientHeight*0.55;
+}
+function stepped(){
+  if(!FOLLOW||!FLINE)return;
+  FSTEPS++;
+  let dir=1;
+  if(HEAD!==null){                               // walking back the way you came?
+    const pb=(90+atDist(FDIST).ang+NORTH+720)%360;
+    if(Math.abs(((pb-HEAD+540)%360)-180)>110)dir=-1;
+  }
+  FDIST=Math.max(0,Math.min(FLINE.len,FDIST+dir*stepUnits()));
+  drawMe(); recentreMe();
+}
+function onMotion(e){
+  const a=e.accelerationIncludingGravity||e.acceleration; if(!a)return;
+  const m=Math.hypot(a.x||0,a.y||0,a.z||0);
+  AMAG+=(m-AMAG)*0.10;                           // the slow part is gravity and posture
+  const dv=m-AMAG, now=performance.now();
+  if(!APEAK){ if(dv>1.2&&now-ALAST>280){APEAK=true;ALAST=now;stepped();} }
+  else if(dv<0.4)APEAK=false;
+}
+function listenMotion(){
+  if(MWATCH)return Promise.resolve(true);
+  const D=window.DeviceMotionEvent;
+  if(!D)return Promise.resolve(false);
+  const go=()=>{MWATCH=true;window.addEventListener('devicemotion',onMotion,true);return true;};
+  if(typeof D.requestPermission==='function')
+    return D.requestPermission().then(r=>r==='granted'?go():false).catch(()=>false);
+  return Promise.resolve(go());
+}
+function followOff(){
+  FOLLOW=false; FARM=false;
+  $('vfollow').setAttribute('aria-pressed','false');
+  $('fbar').hidden=true; document.body.classList.remove('following');
+  const g=$('vbody').querySelector('#mehere'); if(g)g.remove();
+}
+function followOn(){
+  FLINE=routeLine(zfk);
+  if(!FLINE)return cmsg('There is no route on this floor to follow.');
+  listenMotion().then(ok=>{
+    if(!ok)return cmsg('This device will not share its motion sensors with a web page.');
+    FOLLOW=true; FDIST=0; FSTEPS=0; FARM=false;
+    $('vfollow').setAttribute('aria-pressed','true');
+    $('fbar').hidden=false; document.body.classList.add('following');
+    listenHead();                                // direction of travel needs the compass
+    drawMe(); recentreMe();
+    cmsg('Counting your steps. If it drifts, tap I am here.');
+  });
+}
+
 function openV(fk){lockPage();document.body.classList.add('vopen');$('viewer').hidden=false;
   showV(fk);rotePrompt();$('vclose').focus();}
 $('vclose').onclick=()=>{$('viewer').hidden=true;document.body.classList.remove('vopen');unlockPage();clearTimeout(window.__rt);const r=document.querySelector('.viewer .rotate');if(r)r.classList.add('gone');};
@@ -1730,12 +1881,35 @@ $('over2').onclick=startOver;
 $('savelink').onclick=copyLink;
 $('startroute').onclick=()=>{if(ROUTE.length)openV(ROUTE[0]);};
 $('vcomp').onclick=()=>{COMPASS?compassOff():compassOn();};
+$('vfollow').onclick=()=>{FOLLOW?followOff():followOn();};
+$('fstop').onclick=()=>followOff();
+$('fhere').onclick=()=>{FARM=!FARM;$('fhere').setAttribute('aria-pressed',FARM?'true':'false');fSay();};
+$('fdone').onclick=()=>{                      // one walk end to end sets the stride
+  if(FSTEPS>8&&FLINE){SPU=FLINE.len/FSTEPS;
+    try{localStorage.setItem(SKEY,String(SPU));}catch(e){}
+    FDIST=FLINE.len; drawMe();
+    cmsg('Stride learned from that walk — the next one will track better.');
+  } else { FDIST=FLINE?FLINE.len:0; drawMe(); cmsg('Marked as arrived.'); }
+};
+$('vbody').addEventListener('click',(e)=>{      // tap the plan to put the dot right
+  if(!FOLLOW||!FARM||!FLINE)return;
+  const sv=$('vbody').querySelector('svg'); if(!sv)return;
+  const r=sv.getBoundingClientRect(), f=DATA.floors[zfk];
+  const pt=sv.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+  const m=sv.getScreenCTM(); if(!m)return;
+  const q=pt.matrixTransform(m.inverse());
+  FDIST=nearestOn(q.x,q.y); FSTEPS=0; FARM=false;
+  $('fhere').setAttribute('aria-pressed','false');
+  drawMe(); recentreMe();
+},true);
 (function(){const f=$('zoomfit').onclick;
   $('zoomfit').onclick=()=>{if(!COMPASS)return f.call($('zoomfit'));fitRoute();fitRot();};})();
-(function(){const f=paintV;window.paintV=function(){f();if(COMPASS)fitRot();};})();
+(function(){const f=paintV;window.paintV=function(){f();if(COMPASS)fitRot();if(FOLLOW)drawMe();};})();
 (function(){const f=$('vclose').onclick;
-  $('vclose').onclick=()=>{if(COMPASS)compassOff();f.call($('vclose'));};})();
-(function(){const f=showV;window.showV=function(fk){f(fk);if(COMPASS)fitRot();};})();
+  $('vclose').onclick=()=>{if(COMPASS)compassOff();if(FOLLOW)followOff();f.call($('vclose'));};})();
+(function(){const f=showV;window.showV=function(fk){f(fk);
+  if(FOLLOW){FLINE=routeLine(fk);FDIST=0;FSTEPS=0;if(!FLINE)followOff();else drawMe();}
+  if(COMPASS)fitRot(); if(FOLLOW)recentreMe();};})();
 (function(){const f=setZoom;window.setZoom=function(n){f(n);if(COMPASS)fitRot();};})();
 $('zoomin').onclick=()=>setZoom(Math.min(12000,Math.round(zw*1.3)));
 $('zoomout').onclick=()=>setZoom(Math.max(300,Math.round(zw/1.3)));
@@ -2091,6 +2265,10 @@ function helpHTML(){
     <li>If the walk crosses between the floors, tap <b>Next</b> at the top to see the next part of it.</li>
     <li><b>Compass</b> on the map turns the plan so the way you are facing is up the screen,
         with a north arrow in the corner. Your phone asks once before it shares its compass.</li>
+    <li><b>Follow</b> counts your steps and slides a dot along the route as you walk. A phone
+        cannot see where it is indoors, so this is an estimate: if the dot gets ahead or behind,
+        tap <b>I am here</b> and then tap the spot on the plan. Tap <b>Arrived</b> at the end of
+        a walk and it learns your stride for next time.</li>
     <li><b>Which building am I at?</b> on the first page uses your phone&rsquo;s location to check
         you have the right site open. It works in the car park, not indoors.</li>
     <li>On a screen that belongs to the building, the walk you pick goes back to the
@@ -2645,6 +2823,7 @@ $('eduser').addEventListener('keydown',e=>{if(e.key==='Enter')$('edpass').focus(
 
 function edOpen(){
   if(typeof COMPASS!=='undefined'&&COMPASS)compassOff();
+  if(typeof FOLLOW!=='undefined'&&FOLLOW)followOff();
   ED.on=true; ED.sel=null;
   ED.fk=ED.fk||(ROUTE[0]||Object.keys(DATA.floors)[0]); zfk=ED.fk;
   document.body.classList.add('editing','vopen');
