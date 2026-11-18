@@ -325,7 +325,7 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
   transform-origin:var(--mox,50%) var(--moy,50%)}
 /* the plan turns; every piece of writing spins back about its own anchor,
    so it stays upright without drifting a pixel off the thing it names */
-.vrot .viewer-body .stage svg text.ml,
+.vrot .viewer-body .stage svg text.ml:not(.mlfix),
 .vrot .viewer-body .stage svg g.tag{
   transform:rotate(calc(-1 * var(--mrot,0deg)));
   transform-box:view-box;transform-origin:var(--lx,50%) var(--ly,50%)}
@@ -341,6 +341,21 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
 /* the needle swings; the letter rides round with it but stays the right way up */
 .rose #rosel{transform:rotate(calc(-1 * var(--nrot,0deg)));
   transform-box:view-box;transform-origin:26px 8px}
+/* the map is driven by the guide now, so no more nagging people to rotate the phone */
+.viewer .rotate{display:none!important}
+.gask{position:absolute;inset:0;z-index:60;display:flex;align-items:center;
+  justify-content:center;padding:22px;background:rgba(6,16,61,.42)}
+.gask[hidden]{display:none}
+.gcard{background:var(--card);border-radius:20px;padding:22px 20px 18px;max-width:380px;
+  box-shadow:0 20px 50px rgba(6,16,61,.34)}
+.gcard h3{margin:0 0 10px;font:800 20px Inter,system-ui,sans-serif;color:var(--text)}
+.gcard p{margin:0 0 11px;font:500 14.5px/1.55 Inter,system-ui,sans-serif;color:var(--text)}
+.gcard p.gquiet{color:var(--muted);font-weight:600}
+.grow{display:flex;gap:9px;margin-top:16px}
+.grow button{flex:1 1 0;appearance:none;cursor:pointer;min-height:46px;border-radius:12px;
+  font:800 15px Inter,system-ui,sans-serif;border:1px solid var(--line);
+  background:var(--paper);color:var(--text)}
+.grow button.pri{background:var(--blue);border-color:var(--blue);color:#fff}
 .fbar{position:absolute;left:12px;right:12px;bottom:14px;z-index:42;background:var(--card);
   border:1px solid var(--line);border-radius:16px;padding:12px 14px;
   box-shadow:0 10px 26px rgba(6,16,61,.26)}
@@ -352,9 +367,12 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
   display:inline-flex;align-items:center;white-space:nowrap;border:1px solid var(--line);
   background:var(--paper);color:var(--text)}
 .facts button[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
-.stage svg #mehere .medot{fill:#1a66ff}
-.stage svg #mehere .mering{fill:none;stroke:#fff}
-.stage svg #mehere .mehalo{fill:#1a66ff;opacity:.17}
+.stage svg #mehere .mehalo{fill:#1a66ff;opacity:.15}
+.stage svg #mehere .meart path{fill:#1a66ff;stroke:#fff;stroke-width:.17}
+.stage svg #mehere .swoosh line{stroke:#1a66ff;stroke-linecap:round}
+/* while your own plane is flying, the ones drawn on the route stand aside */
+body.following .flowarrow,body.following .statarrow,
+body.following .tagstart{display:none}
 body.following .rose{bottom:112px}
 body.following .cmsg{bottom:118px}
 .cmsg{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:40;
@@ -526,9 +544,9 @@ body.scanned-trip .locbar{display:none}
 </div></div>
 <div class="edsheet" id="ednorthask" hidden><div class="edcard">
   <h3>Which way is north?</h3>
-  <p class="ednote">This is already set from a satellite view of the site &mdash; the top of
-     these plans points at 332&deg;, north-north-west. Only change it if the compass is
-     clearly pointing the wrong way. Stand looking the way the <b>top of the plan</b> points
+  <p class="ednote">This is already set from walking the building &mdash; the top of these
+     plans points at about 354&deg;. Only change it if the compass is clearly wrong.
+     This sets every floor; <b>Line up</b> on the map sets just the floor you are on. Stand looking the way the <b>top of the plan</b> points
      and tap Use my heading, or type the bearing in. Easier still: turn Compass and Follow
      on, walk down a corridor and tap <b>Straighten</b> &mdash; it works the bearing out from
      the corridor you are standing in.</p>
@@ -536,7 +554,7 @@ body.scanned-trip .locbar{display:none}
   <input id="ednorthval" type="number" min="0" max="359" step="1" inputmode="numeric">
   <div class="row2"><button id="ednorthless" type="button">&minus;5&deg;</button>
     <button id="ednorthmore" type="button">+5&deg;</button></div>
-  <div class="row2"><button id="ednorthback" type="button">Back to 332&deg;</button>
+  <div class="row2"><button id="ednorthback" type="button">Back to 354&deg;</button>
     <button id="ednorthok" type="button" class="pri">Save</button></div>
   <div class="row2"><button id="ednorthuse" type="button">Use my heading</button></div>
 </div></div>
@@ -573,8 +591,7 @@ body.scanned-trip .locbar{display:none}
 </div></div>
 <div class="viewer" id="viewer" hidden>
   <div class="viewer-bar"><strong id="vtitle">Floor</strong><span id="vstep" class="vstep"></span>
-    <button id="vfollow" aria-pressed="false" title="Count your steps along the route">Follow</button>
-    <button id="vcomp" aria-pressed="false" title="Turn the plan to the way you are facing">Compass</button>
+    <button id="vguide" aria-pressed="false" title="Turn the plan as you walk and mark off the route behind you">Guide me</button>
     <button id="vloo" aria-pressed="false" title="Show the way to the nearest restroom on this floor">Restroom</button>
     <button id="zoomout">&minus;</button><button id="zoomfit">Fit</button><button id="zoomin">+</button>
     <button id="vprev" hidden>&larr; Back</button>
@@ -610,6 +627,16 @@ body.scanned-trip .locbar{display:none}
       <path class="sd" d="M26 40 L21.6 26 L26 26 L30.4 26 Z"/>
       <g id="rosel"><text x="26" y="8.6" text-anchor="middle">N</text></g>
     </g></svg></div>
+  <div class="gask" id="guideask" hidden><div class="gcard">
+    <h3>Guide you as you walk?</h3>
+    <p>The plan turns to face whichever way you set off, and the part of the walk behind you
+       fades away so what is left is what you still have to do.</p>
+    <p class="gquiet">Your phone works this out by itself, from its own compass and the way it
+       is being carried. Nothing leaves the phone, nothing is kept, and nobody else can see
+       where you are.</p>
+    <div class="grow"><button id="guideno" type="button">Not now</button>
+      <button id="guideyes" type="button" class="pri">Yes, guide me</button></div>
+  </div></div>
   <div class="fbar" id="fbar" hidden>
     <div class="ftxt" id="ftxt">Counting your steps&hellip;</div>
     <div class="facts">
@@ -1071,15 +1098,17 @@ function basemap(fk,skip){
       zones+=`<rect class="bay" x="${(p.x+i).toFixed(1)}" y="${(p.y+i).toFixed(1)}" width="${(W-i*2).toFixed(1)}" height="${(H-i*2).toFixed(1)}" rx="${(T*0.9).toFixed(1)}"/>`;
       if(skip.indexOf(p.id)<0){
         if(p.nm){
-          labels+=label(cx,cy-T*0.58,p.id,W*0.90,T*1.46,'ml ml-sim',0.70)
-                 +label(cx,cy+T*1.34,p.nm,W*0.80,T*0.98,'ml ml-sub',0.46);
+          labels+=`<g class="tag" style="--lx:${cx.toFixed(1)}px;--ly:${cy.toFixed(1)}px">`
+                 +label(cx,cy-T*0.58,p.id,W*0.90,T*1.46,'ml mlfix ml-sim',0.70)
+                 +label(cx,cy+T*1.34,p.nm,W*0.80,T*0.98,'ml mlfix ml-sub',0.46)+`</g>`;
         }else labels+=label(cx,cy+T*0.46,p.id,W*0.90,T*1.46,'ml ml-sim',0.70);
       }
     }else if(p.k==='room'){
       if(skip.indexOf(p.id)<0){
         if(p.nm){
-          labels+=label(cx,cy-T*0.58,p.id,W*0.90,T*1.52,'ml ml-room',0.66)
-                 +label(cx,cy+T*1.32,p.nm,W*0.84,T*0.90,'ml ml-sub',0.46);
+          labels+=`<g class="tag" style="--lx:${cx.toFixed(1)}px;--ly:${cy.toFixed(1)}px">`
+                 +label(cx,cy-T*0.58,p.id,W*0.90,T*1.52,'ml mlfix ml-room',0.66)
+                 +label(cx,cy+T*1.32,p.nm,W*0.84,T*0.90,'ml mlfix ml-sub',0.46)+`</g>`;
         }else labels+=label(cx,cy+T*0.46,p.id,W*0.90,T*1.52,'ml ml-room',0.66);
       }
     }else if(p.k==='area'){
@@ -1169,13 +1198,14 @@ function overlay(fk,legs,aId,bId){
           +`<animateMotion dur="${dur.toFixed(2)}s" begin="${(-dur*i/n).toFixed(2)}s" repeatCount="indefinite" rotate="auto" path="${d}"/></g>`;
       }
     }
-    if(L.a)tags.push({x:sp[0][0],y:sp[0][1],text:L.a,c:col(L.t0)});
+    if(L.a)tags.push({x:sp[0][0],y:sp[0][1],text:L.a,c:col(L.t0),start:1});
     if(L.b)tags.push({x:sp[sp.length-1][0],y:sp[sp.length-1][1],text:L.b,c:col(L.t1)});
   }
   s+='</g>';
   for(const t of tags){
-    s+=`<circle cx="${t.x.toFixed(1)}" cy="${t.y.toFixed(1)}" r="${(T*2.17).toFixed(2)}" fill="var(--paper)" stroke="${t.c}" stroke-width="${(T*0.65).toFixed(2)}"/>`;
-    s+=`<circle cx="${t.x.toFixed(1)}" cy="${t.y.toFixed(1)}" r="${(T*0.93).toFixed(2)}" fill="${t.c}"/>`;
+    const k=t.start?' class="tagstart"':'';
+    s+=`<circle${k} cx="${t.x.toFixed(1)}" cy="${t.y.toFixed(1)}" r="${(T*2.17).toFixed(2)}" fill="var(--paper)" stroke="${t.c}" stroke-width="${(T*0.65).toFixed(2)}"/>`;
+    s+=`<circle${k} cx="${t.x.toFixed(1)}" cy="${t.y.toFixed(1)}" r="${(T*0.93).toFixed(2)}" fill="${t.c}"/>`;
   }
   const BH=T*2.6,placed=[];
   for(const t of tags){
@@ -1195,7 +1225,7 @@ function overlay(fk,legs,aId,bId){
       if(best&&best.sc===0)break;
     }
     placed.push(best.r);const r=best.r;
-    s+=`<g class="tag" style="--lx:${(r.x+w/2).toFixed(1)}px;--ly:${(r.y+BH/2).toFixed(1)}px"><rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${w.toFixed(1)}" height="${BH.toFixed(1)}" rx="${(BH/2).toFixed(1)}" fill="var(--paper)" stroke="${t.c}" stroke-width="${(T*0.26).toFixed(2)}"/>`
+    s+=`<g class="tag${t.start?' tagstart':''}" style="--lx:${(r.x+w/2).toFixed(1)}px;--ly:${(r.y+BH/2).toFixed(1)}px"><rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${w.toFixed(1)}" height="${BH.toFixed(1)}" rx="${(BH/2).toFixed(1)}" fill="var(--paper)" stroke="${t.c}" stroke-width="${(T*0.26).toFixed(2)}"/>`
       +`<text x="${(r.x+w/2).toFixed(1)}" y="${(r.y+BH*0.69).toFixed(1)}" text-anchor="middle" fill="${t.c}" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="${(T*1.45).toFixed(2)}">${t.text}</text></g>`;
   }
   return s+'</svg>';
@@ -1621,21 +1651,34 @@ function unlockPage(){
 }
 // ---- which way the building points, and which way the reader does ----
 const NKEY='caequest-north';
-const NDEF=332;            // measured off a north-up satellite view of the site
-let NORTH=NDEF, HEAD=null, SHOWN=0, COMPASS=false, CWATCH=false;
+// Walking the 2nd-floor bay hallway reads 264 degrees on the phone, which puts the
+// top of these plans at 354.  A satellite view of the roof says 332; the 22 degrees
+// between them is either the hand-drawn plan or the steel in the building bending
+// the magnetometer.  The phone in the hallway is what people actually hold, so the
+// phone wins, and Line up re-measures it, per floor, if the two ever disagree.
+const NDEF=354;
+let NMAP={}, NORTH=NDEF, HEAD=null, SHOWN=0, COMPASS=false, CWATCH=false;
 let VX=0, VY=0, VSEEN=false, LAST=0, RAF=0, MOVING=false;
-try{const v=localStorage.getItem(NKEY); if(v!==null&&v!=='')NORTH=(+v)||0;}catch(e){}
+try{const v=localStorage.getItem(NKEY);
+  if(v!==null&&v!==''){const j=JSON.parse(v); NMAP=(j&&typeof j==='object')?j:{all:+j};}
+}catch(e){ try{const n=+localStorage.getItem(NKEY); if(n===n)NMAP={all:n};}catch(e2){} }
+const northOf=fk=>{const v=(NMAP&&NMAP[fk]!=null)?NMAP[fk]:(NMAP&&NMAP.all!=null?NMAP.all:NDEF);
+  return ((+v||0)%360+360)%360;};
+if(NMAP&&NMAP.all!=null)NORTH=((+NMAP.all||0)%360+360)%360;   // before any floor is open
+const saveNorth=()=>{try{localStorage.setItem(NKEY,JSON.stringify(NMAP));}catch(e){}};
+function syncNorth(){const n=northOf(zfk); if(n!==NORTH){NORTH=n;MOVING=true;}}
 
 function headOf(e){
   if(typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading))
     return e.webkitCompassHeading;                 // iOS hands over a true bearing
-  if(e.absolute===true&&typeof e.alpha==='number') return (360-e.alpha)%360;
+  if(e.absolute===true&&typeof e.alpha==='number'&&isFinite(e.alpha))return (360-e.alpha)%360;
   return null;                                     // a relative reading is no use here
 }
 // A magnetometer never sits still, so the heading is averaged as a vector
 // (no wrap-around at 360) over about half a second before anything moves.
 function onHead(e){
-  const h=headOf(e); if(h===null)return;
+  const h=headOf(e);
+  if(h===null||!isFinite(h))return;        // one bad reading must not poison the average
   const now=performance.now(), dt=LAST?Math.min(0.25,(now-LAST)/1000):0.016; LAST=now;
   const k=VSEEN?1-Math.exp(-dt/0.45):1, r=h*Math.PI/180;
   VX+=(Math.cos(r)-VX)*k; VY+=(Math.sin(r)-VY)*k; VSEEN=true;
@@ -1650,19 +1693,22 @@ function paintRot(){
   s.style.setProperty('--mrot',SHOWN.toFixed(1)+'deg');
   $('rose').style.setProperty('--nrot',(SHOWN-NORTH).toFixed(1)+'deg');
 }
+// Nobody walks down a corridor diagonally, so the plan only ever sits one of four
+// ways up: the way the corridors run.  It flips a quarter turn when you turn a
+// corner and is otherwise perfectly still, which no amount of filtering could match.
+let QUAD=0;
+function wantRot(){
+  const raw=((NORTH-HEAD)%360+360)%360, cur=QUAD*90;
+  const off=((raw-cur+540)%360)-180;
+  if(Math.abs(off)>52)QUAD=((Math.round(raw/90)%4)+4)%4;   // well past half way first
+  return QUAD*90;
+}
 function tick(){
   RAF=0;
   if(!COMPASS||HEAD===null)return;
-  const want=NORTH-HEAD, d=((want-SHOWN+540)%360)-180, m=Math.abs(d);
-  if(!MOVING){
-    if(m<2.2)return;                      // genuinely still: leave the drawing alone
-    if(m<7){                              // a slow drift, caught up too slowly to see
-      SHOWN+=d*0.035; paintRot(); RAF=requestAnimationFrame(tick); return;
-    }
-  }
-  if(MOVING&&m<0.8){MOVING=false;RAF=requestAnimationFrame(tick);return;}
-  MOVING=true;
-  SHOWN+=d*0.22; paintRot();
+  const want=wantRot(), d=((want-SHOWN+540)%360)-180;
+  if(Math.abs(d)<0.4){ if(SHOWN!==want){SHOWN=want;paintRot();} MOVING=false; return; }
+  MOVING=true; SHOWN+=d*0.22; paintRot();
   RAF=requestAnimationFrame(tick);
 }
 function listenHead(){
@@ -1687,7 +1733,7 @@ function cmsg(t){
 // Where the reader is standing on this floor: the first step of this leg.
 function anchorOf(fk){
   const f=DATA.floors[fk];
-  if(FOLLOW&&FLINE&&fk===zfk){const q=atDist(FDIST);return [q.x,q.y];}
+  if(FOLLOW&&FLINE&&fk===zfk){const q=atDist(FSHOW);return [q.x,q.y];}
   if(LASTR&&LASTR.per&&LASTR.per[fk]&&LASTR.per[fk].length){
     const L=LASTR.per[fk][0],n=f.nav,c0=L.path&&L.path[0];
     if(c0)return toImg(fk,c0[1]*n.cell+n.cell/2,c0[0]*n.cell+n.cell/2);
@@ -1711,17 +1757,19 @@ function fitRot(){
 }
 function compassOff(){
   COMPASS=false; MOVING=false; cancelAnimationFrame(RAF); RAF=0;
-  $('vcomp').setAttribute('aria-pressed','false'); $('rose').hidden=true;
+  $('rose').hidden=true;
   document.body.classList.remove('vrot');
   const s=$('vbody').querySelector('.stage');
   if(s)for(const v of ['--mrot','--mtx','--mty','--mox','--moy'])s.style.removeProperty(v);
   SHOWN=0; cmsg(''); fitRoute();
 }
 function compassOn(){
+  syncNorth();
   listenHead().then(ok=>{
     if(!ok)return cmsg('This device will not share its compass with a web page.');
-    COMPASS=true; MOVING=true; SHOWN=HEAD===null?0:NORTH-HEAD;
-    $('vcomp').setAttribute('aria-pressed','true');
+    COMPASS=true; MOVING=true;
+    QUAD=HEAD===null?0:((Math.round((((NORTH-HEAD)%360+360)%360)/90)%4)+4)%4;
+    SHOWN=QUAD*90;
     document.body.classList.add('vrot'); $('rose').hidden=false; fitRot();
     $('rose').style.setProperty('--nrot',(SHOWN-NORTH).toFixed(1)+'deg');
     cmsg('Turning the plan to face your way.');
@@ -1733,7 +1781,7 @@ function compassOn(){
 // ---- Follow me ---------------------------------------------------
 const SKEY='caequest-stride';
 let FOLLOW=false, FDIST=0, FLINE=null, FSTEPS=0, FARM=false, MWATCH=false;
-let SPU=0, AMAG=9.8, APEAK=false, ALAST=0;
+let SPU=0, AMAG=9.8, APEAK=false, ALAST=0, FSHOW=0, FRAF=0;
 try{const v=localStorage.getItem(SKEY); if(v)SPU=+v||0;}catch(e){}
 
 // the same simplified line the route is actually drawn with, so the dot
@@ -1779,21 +1827,48 @@ function nearestOn(x,y){
   }
   return best;
 }
-function drawMe(){
+// Steps arrive one at a time; the plane eases between them so it flies
+// rather than hops, and the view and the swoosh come with it.
+function fTick(){
+  FRAF=0;
+  const d=FDIST-FSHOW;
+  if(Math.abs(d)<0.3){FSHOW=FDIST;paintMe();return;}
+  FSHOW+=d*0.17; paintMe();
+  FRAF=requestAnimationFrame(fTick);
+}
+function paintMe(){
   const sv=$('vbody').querySelector('svg');
   if(!sv||!FLINE)return;
-  const T=DATA.floors[zfk].ih/100,q=atDist(FDIST);
   let g=sv.querySelector('#mehere');
   if(!g){
     g=document.createElementNS('http://www.w3.org/2000/svg','g'); g.id='mehere';
-    g.innerHTML='<circle class="mehalo" r="'+(T*4.4).toFixed(1)+'"/>'
-               +'<circle class="mering" r="'+(T*1.55).toFixed(1)+'" stroke-width="'+(T*0.62).toFixed(2)+'"/>'
-               +'<circle class="medot" r="'+(T*1.30).toFixed(1)+'"/>';
+    g.innerHTML='<g class="swoosh"></g><circle class="mehalo"/>'
+               +'<g class="meplane"><g class="meart">'+PLANE+'</g></g>';
     sv.appendChild(g);
   }
-  g.setAttribute('transform','translate('+q.x.toFixed(1)+' '+q.y.toFixed(1)+')');
-  rubOut(FDIST);
-  fSay();
+  // everything sized in screen pixels, so zooming never bloats it
+  const k=DATA.floors[zfk].iw/Math.max(1,zw||1), q=atDist(FSHOW);
+  const halo=g.querySelector('.mehalo');
+  halo.setAttribute('r',(23*k).toFixed(2));
+  halo.setAttribute('cx',q.x.toFixed(1)); halo.setAttribute('cy',q.y.toFixed(1));
+  g.querySelector('.meplane').setAttribute('transform',
+    'translate('+q.x.toFixed(1)+' '+q.y.toFixed(1)+') rotate('+q.ang.toFixed(1)+')');
+  g.querySelector('.meart').setAttribute('transform','scale('+(19.5*k).toFixed(2)+')');
+  // the swoosh: the last stretch of route behind the nose, thinning out
+  const N=6, span=74*k, sw=[];
+  for(let i=0;i<N;i++){
+    const a=atDist(Math.max(0,FSHOW-span*(i+1)/N)), b=atDist(Math.max(0,FSHOW-span*i/N));
+    if(Math.hypot(b.x-a.x,b.y-a.y)<0.2)continue;
+    sw.push('<line x1="'+a.x.toFixed(1)+'" y1="'+a.y.toFixed(1)+'" x2="'+b.x.toFixed(1)+'" y2="'+b.y.toFixed(1)
+      +'" stroke-width="'+((10-i*1.3)*k).toFixed(2)+'" opacity="'+(0.52-i*0.08).toFixed(2)+'"/>');
+  }
+  g.querySelector('.swoosh').innerHTML=sw.join('');
+  rubOut(FSHOW);
+  recentreMe();
+}
+function drawMe(){
+  paintMe(); fSay();
+  if(!FRAF&&Math.abs(FDIST-FSHOW)>0.3)FRAF=requestAnimationFrame(fTick);
 }
 // Both the little floor panel and the full-screen copy carry the same mask,
 // so both are told how far you have got.
@@ -1813,7 +1888,7 @@ function clearRub(){
 // close enough to read the room numbers either side of you, as a phone map does
 function walkZoom(){
   const b=$('vbody'),f=DATA.floors[zfk];
-  const across=280;                      // plan units across the screen, roughly 20 m
+  const across=200;                      // plan units across the screen, roughly 15 m
   zw=Math.round(Math.max(b.clientWidth,b.clientWidth*f.iw/across));
   const st=b.querySelector('.stage'); if(st)st.style.width=zw+'px';
 }
@@ -1827,7 +1902,7 @@ function fSay(){
 function recentreMe(){
   if(!FOLLOW||!FLINE)return;
   if(COMPASS)return fitRot();                    // the turning view pins on the dot already
-  const b=$('vbody'),f=DATA.floors[zfk],k=zw/f.iw,q=atDist(FDIST);
+  const b=$('vbody'),f=DATA.floors[zfk],k=zw/f.iw,q=atDist(FSHOW);
   b.scrollLeft=q.x*k-b.clientWidth/2;
   b.scrollTop =q.y*k-(b.clientHeight-104)*0.66;
 }
@@ -1836,15 +1911,16 @@ function stepped(){
   FSTEPS++;
   let dir=1;
   if(HEAD!==null){                               // walking back the way you came?
-    const pb=(90+atDist(FDIST).ang+NORTH+720)%360;
+    const pb=(90+atDist(FSHOW).ang+NORTH+720)%360;
     if(Math.abs(((pb-HEAD+540)%360)-180)>110)dir=-1;
   }
   FDIST=Math.max(0,Math.min(FLINE.len,FDIST+dir*stepUnits()));
-  drawMe(); recentreMe();
+  drawMe();
 }
 function onMotion(e){
   const a=e.accelerationIncludingGravity||e.acceleration; if(!a)return;
   const m=Math.hypot(a.x||0,a.y||0,a.z||0);
+  if(!isFinite(m))return;
   AMAG+=(m-AMAG)*0.10;                           // the slow part is gravity and posture
   const dv=m-AMAG, now=performance.now();
   if(!APEAK){ if(dv>1.2&&now-ALAST>280){APEAK=true;ALAST=now;stepped();} }
@@ -1860,8 +1936,7 @@ function listenMotion(){
   return Promise.resolve(go());
 }
 function followOff(){
-  FOLLOW=false; FARM=false;
-  $('vfollow').setAttribute('aria-pressed','false');
+  FOLLOW=false; FARM=false; cancelAnimationFrame(FRAF); FRAF=0; FSHOW=0;
   $('fbar').hidden=true; document.body.classList.remove('following');
   const g=$('vbody').querySelector('#mehere'); if(g)g.remove();
   clearRub(); fitRoute(); if(COMPASS)fitRot();
@@ -1871,8 +1946,7 @@ function followOn(){
   if(!FLINE)return cmsg('There is no route on this floor to follow.');
   listenMotion().then(ok=>{
     if(!ok)return cmsg('This device will not share its motion sensors with a web page.');
-    FOLLOW=true; FDIST=0; FSTEPS=0; FARM=false; walkZoom();
-    $('vfollow').setAttribute('aria-pressed','true');
+    FOLLOW=true; FDIST=0; FSHOW=0; FSTEPS=0; FARM=false; walkZoom();
     $('fbar').hidden=false; document.body.classList.add('following');
     listenHead();                                // direction of travel needs the compass
     drawMe(); recentreMe();
@@ -1881,7 +1955,7 @@ function followOn(){
 }
 
 function openV(fk){lockPage();document.body.classList.add('vopen');$('viewer').hidden=false;
-  showV(fk);rotePrompt();$('vclose').focus();}
+  showV(fk);$('vclose').focus();}
 $('vclose').onclick=()=>{$('viewer').hidden=true;document.body.classList.remove('vopen');unlockPage();clearTimeout(window.__rt);const r=document.querySelector('.viewer .rotate');if(r)r.classList.add('gone');};
 function setZoom(nw){
   const b=$('vbody'),s=b.querySelector('.stage');
@@ -1917,9 +1991,22 @@ $('again').onclick=()=>{STEP=0;FILTER='';wiz();};
 $('over2').onclick=startOver;
 $('savelink').onclick=copyLink;
 $('startroute').onclick=()=>{if(ROUTE.length)openV(ROUTE[0]);};
-$('vcomp').onclick=()=>{COMPASS?compassOff():compassOn();};
-$('vfollow').onclick=()=>{FOLLOW?followOff():followOn();};
-$('fstop').onclick=()=>followOff();
+const GOK='caequest-guide-ok';
+function guideOn(){ compassOn(); followOn(); $('vguide').setAttribute('aria-pressed','true'); }
+function guideOff(){ followOff(); compassOff(); $('vguide').setAttribute('aria-pressed','false'); }
+$('vguide').onclick=()=>{
+  if(FOLLOW||COMPASS)return guideOff();
+  let seen=false; try{seen=localStorage.getItem(GOK)==='1';}catch(e){}
+  if(seen)return guideOn();
+  $('guideask').hidden=false;                 // asked once, in plain words
+};
+$('guideno').onclick=()=>{$('guideask').hidden=true;};
+$('guideask').onclick=(e)=>{ if(e.target===$('guideask'))$('guideask').hidden=true; };
+$('guideyes').onclick=()=>{
+  try{localStorage.setItem(GOK,'1');}catch(e){}
+  $('guideask').hidden=true; guideOn();
+};
+$('fstop').onclick=()=>guideOff();
 // You are standing in a corridor whose direction the plan already knows, so your
 // heading and that direction together give the bearing of the top of the page.
 $('fstraight').onclick=()=>{
@@ -1929,10 +2016,9 @@ $('fstraight').onclick=()=>{
   let cand=((HEAD-90-a)%360+360)%360;
   const off=x=>Math.abs(((x-NORTH+540)%360)-180);
   if(off((cand+180)%360)<off(cand))cand=(cand+180)%360;   // walking it the other way
-  NORTH=cand;
-  try{localStorage.setItem(NKEY,String(NORTH));}catch(e){}
+  NORTH=cand; NMAP[zfk]=cand; saveNorth();
   MOVING=true; if(COMPASS&&RAF===0)RAF=requestAnimationFrame(tick);
-  cmsg('Straightened. Top of the plan is '+Math.round(NORTH)+'° from north.');
+  cmsg('Lined up. On this floor the top of the plan is '+Math.round(NORTH)+'° from north.');
 };
 $('fhere').onclick=()=>{FARM=!FARM;$('fhere').setAttribute('aria-pressed',FARM?'true':'false');fSay();};
 $('fdone').onclick=()=>{                      // one walk end to end sets the stride
@@ -1949,17 +2035,18 @@ $('vbody').addEventListener('click',(e)=>{      // tap the plan to put the dot r
   const pt=sv.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
   const m=sv.getScreenCTM(); if(!m)return;
   const q=pt.matrixTransform(m.inverse());
-  FDIST=nearestOn(q.x,q.y); FSTEPS=0; FARM=false;
+  FDIST=FSHOW=nearestOn(q.x,q.y); FSTEPS=0; FARM=false;   // a correction lands at once
   $('fhere').setAttribute('aria-pressed','false');
-  drawMe(); recentreMe();
+  drawMe();
 },true);
 (function(){const f=$('zoomfit').onclick;
   $('zoomfit').onclick=()=>{if(!COMPASS)return f.call($('zoomfit'));fitRoute();fitRot();};})();
 (function(){const f=paintV;window.paintV=function(){f();if(COMPASS)fitRot();if(FOLLOW)drawMe();};})();
 (function(){const f=$('vclose').onclick;
-  $('vclose').onclick=()=>{if(COMPASS)compassOff();if(FOLLOW)followOff();f.call($('vclose'));};})();
+  $('vclose').onclick=()=>{if(COMPASS||FOLLOW)guideOff();$('guideask').hidden=true;f.call($('vclose'));};})();
 (function(){const f=showV;window.showV=function(fk){f(fk);
-  if(FOLLOW){clearRub();FLINE=routeLine(fk);FDIST=0;FSTEPS=0;
+  syncNorth();
+  if(FOLLOW){clearRub();FLINE=routeLine(fk);FDIST=0;FSHOW=0;FSTEPS=0;
     if(!FLINE)followOff();else{walkZoom();drawMe();}}
   if(COMPASS)fitRot(); if(FOLLOW)recentreMe();};})();
 (function(){const f=setZoom;window.setZoom=function(n){f(n);if(COMPASS)fitRot();};})();
@@ -1992,7 +2079,7 @@ $('ednorthask').onclick=(e)=>{                       // a tap outside leaves it 
 };
 $('ednorthok').onclick=()=>{
   NORTH=((+$('ednorthval').value||0)%360+360)%360;
-  try{localStorage.setItem(NKEY,String(NORTH));}catch(e){}
+  NMAP={all:NORTH}; saveNorth();                   // the sheet sets every floor at once
   clearInterval(window.__nh); $('ednorthask').hidden=true; MOVING=true;
   edSay('Top of the plan set to '+Math.round(NORTH)+'\u00b0 from north.');
 };
@@ -2321,14 +2408,18 @@ function helpHTML(){
     <li>Do the same for where you are going.</li>
     <li>Tap <b>Start route</b>. The map opens full screen.</li>
     <li>If the walk crosses between the floors, tap <b>Next</b> at the top to see the next part of it.</li>
-    <li><b>Compass</b> on the map turns the plan so the way you are facing is up the screen,
-        with a north arrow in the corner. Your phone asks once before it shares its compass.</li>
-    <li>The part of the walk behind you fades off the map as you go, so what is left is
-        what you still have to do.</li>
-    <li><b>Follow</b> counts your steps and slides a dot along the route as you walk. A phone
-        cannot see where it is indoors, so this is an estimate: if the dot gets ahead or behind,
-        tap <b>I am here</b> and then tap the spot on the plan. Tap <b>Arrived</b> at the end of
-        a walk and it learns your stride for next time.</li>
+    <li><b>Guide me</b> on the map turns the plan to face the way you set off, slides a dot
+        along the route as you walk, and fades away the part you have already done. The plan
+        only ever sits one of four ways up, the way the corridors run, so it flips a quarter
+        turn at a corner and sits still the rest of the time. Your phone asks once before it
+        will share its compass.</li>
+    <li>Your plane points the way you are walking and leaves a short trail behind it. The
+        planes that normally drift along the route step aside while it is flying, so there is
+        only ever one of you.</li>
+    <li>It is an estimate, not a tracker: nothing leaves the phone, and a phone cannot see
+        where it is indoors. If the dot gets ahead or behind, tap <b>I am here</b> and then tap
+        the spot on the plan. Tap <b>Arrived</b> at the end and it learns your stride for
+        next time.</li>
     <li><b>Which building am I at?</b> on the first page uses your phone&rsquo;s location to check
         you have the right site open. It works in the car park, not indoors.</li>
     <li>On a screen that belongs to the building, the walk you pick goes back to the
@@ -2882,8 +2973,7 @@ $('edpass').addEventListener('keydown',e=>{if(e.key==='Enter')$('edgo').click();
 $('eduser').addEventListener('keydown',e=>{if(e.key==='Enter')$('edpass').focus();});
 
 function edOpen(){
-  if(typeof COMPASS!=='undefined'&&COMPASS)compassOff();
-  if(typeof FOLLOW!=='undefined'&&FOLLOW)followOff();
+  if(typeof guideOff==='function'&&(COMPASS||FOLLOW))guideOff();
   ED.on=true; ED.sel=null;
   ED.fk=ED.fk||(ROUTE[0]||Object.keys(DATA.floors)[0]); zfk=ED.fk;
   document.body.classList.add('editing','vopen');
