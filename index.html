@@ -343,6 +343,11 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
   transform-box:view-box;transform-origin:26px 8px}
 /* the map is driven by the guide now, so no more nagging people to rotate the phone */
 .viewer .rotate{display:none!important}
+.gart{margin:0 auto 14px;width:170px}
+.gart svg{width:100%;height:auto;overflow:visible}
+.gart .gpath{fill:none;stroke:var(--line);stroke-width:7;stroke-linecap:round;
+  stroke-linejoin:round;stroke-dasharray:1 13}
+.gart .gplane path{fill:var(--blue);stroke:var(--card);stroke-width:.17}
 .gask{position:absolute;inset:0;z-index:60;display:flex;align-items:center;
   justify-content:center;padding:22px;background:rgba(6,16,61,.42)}
 .gask[hidden]{display:none}
@@ -591,7 +596,6 @@ body.scanned-trip .locbar{display:none}
 </div></div>
 <div class="viewer" id="viewer" hidden>
   <div class="viewer-bar"><strong id="vtitle">Floor</strong><span id="vstep" class="vstep"></span>
-    <button id="vguide" aria-pressed="false" title="Turn the plan as you walk and mark off the route behind you">Guide me</button>
     <button id="vloo" aria-pressed="false" title="Show the way to the nearest restroom on this floor">Restroom</button>
     <button id="zoomout">&minus;</button><button id="zoomfit">Fit</button><button id="zoomin">+</button>
     <button id="vprev" hidden>&larr; Back</button>
@@ -628,13 +632,17 @@ body.scanned-trip .locbar{display:none}
       <g id="rosel"><text x="26" y="8.6" text-anchor="middle">N</text></g>
     </g></svg></div>
   <div class="gask" id="guideask" hidden><div class="gcard">
+    <div class="gart" aria-hidden="true"><svg viewBox="0 0 120 64">
+      <path class="gpath" d="M12 50 H66 V18 h34"/>
+      <g class="gplane" transform="translate(66 50) rotate(-90) scale(9)"><path d="M 1 0 L .42 .13 L .18 .15 L -.30 .92 L -.50 .92 L -.12 .16 L -.62 .13 L -.72 .42 L -.90 .42 L -.95 .12 L -1 0 L -.95 -.12 L -.90 -.42 L -.72 -.42 L -.62 -.13 L -.12 -.16 L -.50 -.92 L -.30 -.92 L .18 -.15 L .42 -.13 Z"/></g>
+    </svg></div>
     <h3>Guide you as you walk?</h3>
     <p>The plan turns to face whichever way you set off, and the part of the walk behind you
        fades away so what is left is what you still have to do.</p>
     <p class="gquiet">Your phone works this out by itself, from its own compass and the way it
        is being carried. Nothing leaves the phone, nothing is kept, and nobody else can see
        where you are.</p>
-    <div class="grow"><button id="guideno" type="button">Not now</button>
+    <div class="grow"><button id="guideno" type="button">No thanks</button>
       <button id="guideyes" type="button" class="pri">Yes, guide me</button></div>
   </div></div>
   <div class="fbar" id="fbar" hidden>
@@ -1955,7 +1963,7 @@ function followOn(){
 }
 
 function openV(fk){lockPage();document.body.classList.add('vopen');$('viewer').hidden=false;
-  showV(fk);$('vclose').focus();}
+  showV(fk);$('vclose').focus();maybeAsk();}
 $('vclose').onclick=()=>{$('viewer').hidden=true;document.body.classList.remove('vopen');unlockPage();clearTimeout(window.__rt);const r=document.querySelector('.viewer .rotate');if(r)r.classList.add('gone');};
 function setZoom(nw){
   const b=$('vbody'),s=b.querySelector('.stage');
@@ -1992,14 +2000,18 @@ $('over2').onclick=startOver;
 $('savelink').onclick=copyLink;
 $('startroute').onclick=()=>{if(ROUTE.length)openV(ROUTE[0]);};
 const GOK='caequest-guide-ok';
-function guideOn(){ compassOn(); followOn(); $('vguide').setAttribute('aria-pressed','true'); }
-function guideOff(){ followOff(); compassOff(); $('vguide').setAttribute('aria-pressed','false'); }
-$('vguide').onclick=()=>{
-  if(FOLLOW||COMPASS)return guideOff();
-  let seen=false; try{seen=localStorage.getItem(GOK)==='1';}catch(e){}
-  if(seen)return guideOn();
-  $('guideask').hidden=false;                 // asked once, in plain words
-};
+// There is no button for this, so the offer is the only way in: it comes up
+// as the map does, every time, unless they are already being guided.
+function maybeAsk(){
+  if(FOLLOW||COMPASS||!ROUTE.length)return;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{   // after the plan has painted
+    if($('viewer').hidden||FOLLOW||COMPASS||!$('edbar').hidden)return;
+    if(!routeLine(zfk))return;
+    $('guideask').hidden=false;
+  }));
+}
+function guideOn(){ compassOn(); followOn(); }
+function guideOff(){ followOff(); compassOff(); }
 $('guideno').onclick=()=>{$('guideask').hidden=true;};
 $('guideask').onclick=(e)=>{ if(e.target===$('guideask'))$('guideask').hidden=true; };
 $('guideyes').onclick=()=>{
