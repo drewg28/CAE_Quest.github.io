@@ -323,14 +323,28 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
 .vrot .viewer-body .stage{position:absolute;left:0;top:0;margin:0;
   transform:translate(var(--mtx,0px),var(--mty,0px)) rotate(var(--mrot,0deg));
   transform-origin:var(--mox,50%) var(--moy,50%)}
-/* the plan turns; the words stay the right way up */
+/* the plan turns; every piece of writing spins back about its own anchor,
+   so it stays upright without drifting a pixel off the thing it names */
 .vrot .viewer-body .stage svg text.ml,
-.vrot .viewer-body .stage svg g.tag{transform:rotate(calc(-1 * var(--mrot,0deg)));
-  transform-box:fill-box;transform-origin:center}
+.vrot .viewer-body .stage svg g.tag{
+  transform:rotate(calc(-1 * var(--mrot,0deg)));
+  transform-box:view-box;transform-origin:var(--lx,50%) var(--ly,50%)}
+.rose{position:absolute;left:14px;bottom:16px;width:52px;height:52px;z-index:38;
+  filter:drop-shadow(0 3px 9px rgba(6,16,61,.28))}
+.rose[hidden]{display:none}
+.rose svg{width:100%;height:100%}
+.rose circle{fill:var(--paper);stroke:var(--line);stroke-width:1.5}
+.rose .nd{fill:#e0322c}
+.rose .sd{fill:var(--mapsoft)}
+.rose text{fill:var(--mapink);font:800 11px Inter,system-ui,sans-serif}
+.rose #rosen{transform:rotate(var(--nrot,0deg));transform-origin:26px 26px}
+/* the needle swings; the letter rides round with it but stays the right way up */
+.rose #rosel{transform:rotate(calc(-1 * var(--nrot,0deg)));
+  transform-box:view-box;transform-origin:26px 8px}
 .cmsg{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:40;
   background:var(--heading);color:#fff;font-size:13.5px;font-weight:700;line-height:1.35;
   padding:11px 17px;border-radius:16px;box-shadow:0 8px 22px rgba(6,16,61,.32);
-  max-width:84%;text-align:center}
+  max-width:72%;text-align:center}
 .cmsg[hidden]{display:none}
 #ednorthval{width:100%;font-size:17px;font-weight:700;padding:10px 12px;margin:0 0 12px;
   border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text)}
@@ -465,13 +479,15 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
 </div></div>
 <div class="edsheet" id="ednorthask" hidden><div class="edcard">
   <h3>Which way is north?</h3>
-  <p class="ednote">Stand looking the way the <b>top of the plan</b> points, then tap Use my
-     heading. Or type the bearing of the top of the plan if you already know it. Without this
-     the compass has nothing to line the drawing up against.</p>
+  <p class="ednote">This is already set from a satellite view of the site &mdash; the top of
+     these plans points at 332&deg;, north-north-west. Only change it if the compass is
+     clearly pointing the wrong way. Stand looking the way the <b>top of the plan</b> points
+     and tap Use my heading, or type the bearing in.</p>
   <p class="edmsg" id="ednowhead">Compass: waiting&hellip;</p>
   <input id="ednorthval" type="number" min="0" max="359" step="1" inputmode="numeric">
-  <div class="row2"><button id="ednorthuse" type="button">Use my heading</button>
+  <div class="row2"><button id="ednorthback" type="button">Back to 332&deg;</button>
     <button id="ednorthok" type="button" class="pri">Save</button></div>
+  <div class="row2"><button id="ednorthuse" type="button">Use my heading</button></div>
 </div></div>
 <div class="edsheet" id="edhomeask" hidden><div class="edcard">
   <h3>This screen</h3>
@@ -521,6 +537,13 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
     <button id="eddone" type="button" class="pri">Done</button>
   </div>
   <div class="viewer-body" id="vbody"></div>
+  <div class="rose" id="rose" hidden aria-hidden="true"><svg viewBox="0 0 52 52">
+    <circle cx="26" cy="26" r="24"/>
+    <g id="rosen">
+      <path class="nd" d="M26 12 L30.4 26 L26 26 L21.6 26 Z"/>
+      <path class="sd" d="M26 40 L21.6 26 L26 26 L30.4 26 Z"/>
+      <g id="rosel"><text x="26" y="8.6" text-anchor="middle">N</text></g>
+    </g></svg></div>
   <div class="cmsg" id="cmsg" hidden aria-live="polite"></div>
   <div class="rotate" aria-hidden="true"><div class="rotebox">
     <svg viewBox="-1 0 68 44" width="74" height="48">
@@ -943,14 +966,15 @@ function facGlyph(kind,cx,cy,T){
      +`<circle cx="${S(0.36)}" cy="${S(-0.44)}" r="${S(0.16)}" fill="var(--mapicon)"/>`
      +`<path d="M ${S(0.12)} ${S(0.18)} L ${S(0.36)} ${S(-0.24)} L ${S(0.60)} ${S(0.18)} Z M ${S(0.36)} ${S(0.18)} L ${S(0.36)} ${S(0.62)}" ${st}/>`;
   }
-  return `<g transform="translate(${cx.toFixed(1)} ${cy.toFixed(1)})">`
-    +`<rect class="chip" x="${(-R).toFixed(1)}" y="${(-R).toFixed(1)}" width="${(R*2).toFixed(1)}" height="${(R*2).toFixed(1)}" rx="${(R*0.42).toFixed(1)}"/>${g}</g>`;
+  return `<g class="tag" style="--lx:${cx.toFixed(1)}px;--ly:${cy.toFixed(1)}px">`
+    +`<g transform="translate(${cx.toFixed(1)} ${cy.toFixed(1)})">`
+    +`<rect class="chip" x="${(-R).toFixed(1)}" y="${(-R).toFixed(1)}" width="${(R*2).toFixed(1)}" height="${(R*2).toFixed(1)}" rx="${(R*0.42).toFixed(1)}"/>${g}</g></g>`;
 }
 
 function basemap(fk,skip){
   const f=DATA.floors[fk], T=f.ih/100;
   const esc=ESC;
-  const line=(x,y,t,size,cls)=>`<text class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${size.toFixed(2)}">${esc(t)}</text>`;
+  const line=(x,y,t,size,cls)=>`<text class="${cls}" style="--lx:${x.toFixed(1)}px;--ly:${y.toFixed(1)}px" x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${size.toFixed(2)}">${esc(t)}</text>`;
   // a label never spills out of its room: shrink to fit, and wrap two-word names
   function label(x,y,t,maxw,base,cls,floor){
     const wide=s=>String(s).length*0.60;
@@ -1090,7 +1114,7 @@ function overlay(fk,legs,aId,bId){
       if(best&&best.sc===0)break;
     }
     placed.push(best.r);const r=best.r;
-    s+=`<g class="tag"><rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${w.toFixed(1)}" height="${BH.toFixed(1)}" rx="${(BH/2).toFixed(1)}" fill="var(--paper)" stroke="${t.c}" stroke-width="${(T*0.26).toFixed(2)}"/>`
+    s+=`<g class="tag" style="--lx:${(r.x+w/2).toFixed(1)}px;--ly:${(r.y+BH/2).toFixed(1)}px"><rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${w.toFixed(1)}" height="${BH.toFixed(1)}" rx="${(BH/2).toFixed(1)}" fill="var(--paper)" stroke="${t.c}" stroke-width="${(T*0.26).toFixed(2)}"/>`
       +`<text x="${(r.x+w/2).toFixed(1)}" y="${(r.y+BH*0.69).toFixed(1)}" text-anchor="middle" fill="${t.c}" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="${(T*1.45).toFixed(2)}">${t.text}</text></g>`;
   }
   return s+'</svg>';
@@ -1137,8 +1161,9 @@ function looLayer(fk){
   let lx=e[0]+T*2.4, ly=e[1]-bh/2;
   if(lx+w>f.iw-4)lx=e[0]-T*2.4-w;
   lx=Math.max(4,Math.min(f.iw-w-4,lx)); ly=Math.max(4,Math.min(f.ih-bh-4,ly));
-  s+=`<rect x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" width="${w.toFixed(1)}" height="${bh.toFixed(1)}" rx="${(bh/2).toFixed(1)}" fill="var(--paper)" stroke="var(--loo)" stroke-width="${(T*0.22).toFixed(2)}"/>`;
-  s+=`<text x="${(lx+w/2).toFixed(1)}" y="${(ly+bh*0.70).toFixed(1)}" text-anchor="middle" fill="var(--loo)" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="${(T*1.20).toFixed(2)}">Restroom</text>`;
+  s+=`<g class="tag" style="--lx:${(lx+w/2).toFixed(1)}px;--ly:${(ly+bh/2).toFixed(1)}px">`
+    +`<rect x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" width="${w.toFixed(1)}" height="${bh.toFixed(1)}" rx="${(bh/2).toFixed(1)}" fill="var(--paper)" stroke="var(--loo)" stroke-width="${(T*0.22).toFixed(2)}"/>`;
+  s+=`<text x="${(lx+w/2).toFixed(1)}" y="${(ly+bh*0.70).toFixed(1)}" text-anchor="middle" fill="var(--loo)" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="${(T*1.20).toFixed(2)}">Restroom</text></g>`;
   return LOOCACHE[fk]=s+'</g>';
 }
 const st=(function(){
@@ -1513,10 +1538,12 @@ function unlockPage(){
   b.style.width=''; b.style.overflow='';
   window.scrollTo(0,PAGEY);
 }
-// ---- which way the building is pointing, and which way you are ----
+// ---- which way the building points, and which way the reader does ----
 const NKEY='caequest-north';
-let NORTH=0, HEAD=null, CROT=0, COMPASS=false, CWATCH=false;
-try{const v=localStorage.getItem(NKEY); if(v!==null)NORTH=(+v)||0;}catch(e){}
+const NDEF=332;            // measured off a north-up satellite view of the site
+let NORTH=NDEF, HEAD=null, SHOWN=0, COMPASS=false, CWATCH=false;
+let VX=0, VY=0, VSEEN=false, LAST=0, RAF=0, MOVING=false;
+try{const v=localStorage.getItem(NKEY); if(v!==null&&v!=='')NORTH=(+v)||0;}catch(e){}
 
 function headOf(e){
   if(typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading))
@@ -1524,16 +1551,38 @@ function headOf(e){
   if(e.absolute===true&&typeof e.alpha==='number') return (360-e.alpha)%360;
   return null;                                     // a relative reading is no use here
 }
+// A magnetometer never sits still, so the heading is averaged as a vector
+// (no wrap-around at 360) over about half a second before anything moves.
 function onHead(e){
   const h=headOf(e); if(h===null)return;
-  HEAD=h;
-  if(!COMPASS)return;
-  // shortest way round, and eased: a magnetometer wobbles a few degrees at rest
-  const want=NORTH-h, d=((want-CROT+540)%360)-180;
-  if(Math.abs(d)<1.2)return;
-  CROT+=d*0.35;
+  const now=performance.now(), dt=LAST?Math.min(0.25,(now-LAST)/1000):0.016; LAST=now;
+  const k=VSEEN?1-Math.exp(-dt/0.45):1, r=h*Math.PI/180;
+  VX+=(Math.cos(r)-VX)*k; VY+=(Math.sin(r)-VY)*k; VSEEN=true;
+  HEAD=(Math.atan2(VY,VX)*180/Math.PI+360)%360;
+  if(COMPASS&&!RAF)RAF=requestAnimationFrame(tick);
+}
+// One write per frame, and only once the reader has really turned: a few
+// degrees of noise leaves the drawing exactly where it was.
+function paintRot(){
   const s=$('vbody').querySelector('.stage');
-  if(s)s.style.setProperty('--mrot',CROT.toFixed(1)+'deg');
+  if(!s)return;
+  s.style.setProperty('--mrot',SHOWN.toFixed(1)+'deg');
+  $('rose').style.setProperty('--nrot',(SHOWN-NORTH).toFixed(1)+'deg');
+}
+function tick(){
+  RAF=0;
+  if(!COMPASS||HEAD===null)return;
+  const want=NORTH-HEAD, d=((want-SHOWN+540)%360)-180, m=Math.abs(d);
+  if(!MOVING){
+    if(m<2.2)return;                      // genuinely still: leave the drawing alone
+    if(m<7){                              // a slow drift, caught up too slowly to see
+      SHOWN+=d*0.035; paintRot(); RAF=requestAnimationFrame(tick); return;
+    }
+  }
+  if(MOVING&&m<0.8){MOVING=false;RAF=requestAnimationFrame(tick);return;}
+  MOVING=true;
+  SHOWN+=d*0.22; paintRot();
+  RAF=requestAnimationFrame(tick);
 }
 function listenHead(){
   if(CWATCH)return Promise.resolve(true);
@@ -1552,7 +1601,7 @@ function cmsg(t){
   const e=$('cmsg'); clearTimeout(window.__cm);
   if(!t){e.hidden=true;return;}
   e.textContent=t; e.hidden=false;
-  window.__cm=setTimeout(()=>{e.hidden=true;},4600);
+  window.__cm=setTimeout(()=>{e.hidden=true;},4200);
 }
 // Where the reader is standing on this floor: the first step of this leg.
 function anchorOf(fk){
@@ -1575,49 +1624,28 @@ function fitRot(){
   s.style.setProperty('--moy',ay.toFixed(1)+'px');
   s.style.setProperty('--mtx',(b.clientWidth/2-ax).toFixed(1)+'px');
   s.style.setProperty('--mty',(b.clientHeight*0.54-ay).toFixed(1)+'px');
-  s.style.setProperty('--mrot',CROT.toFixed(1)+'deg');   // a repaint hands back a bare stage
+  s.style.setProperty('--mrot',SHOWN.toFixed(1)+'deg');   // a repaint hands back a bare stage
 }
 function compassOff(){
-  COMPASS=false; $('vcomp').setAttribute('aria-pressed','false');
+  COMPASS=false; MOVING=false; cancelAnimationFrame(RAF); RAF=0;
+  $('vcomp').setAttribute('aria-pressed','false'); $('rose').hidden=true;
   document.body.classList.remove('vrot');
   const s=$('vbody').querySelector('.stage');
   if(s)for(const v of ['--mrot','--mtx','--mty','--mox','--moy'])s.style.removeProperty(v);
-  CROT=0; cmsg(''); fitRoute();
+  SHOWN=0; cmsg(''); fitRoute();
 }
 function compassOn(){
   listenHead().then(ok=>{
     if(!ok)return cmsg('This device will not share its compass with a web page.');
-    COMPASS=true; CROT=0; $('vcomp').setAttribute('aria-pressed','true');
-    document.body.classList.add('vrot'); fitRot();
-    cmsg(NORTH?'Turning the plan to face your way.'
-              :'North has not been set for this plan yet, so the turning will be wrong.');
+    COMPASS=true; MOVING=true; SHOWN=HEAD===null?0:NORTH-HEAD;
+    $('vcomp').setAttribute('aria-pressed','true');
+    document.body.classList.add('vrot'); $('rose').hidden=false; fitRot();
+    $('rose').style.setProperty('--nrot',(SHOWN-NORTH).toFixed(1)+'deg');
+    cmsg('Turning the plan to face your way.');
     setTimeout(()=>{ if(COMPASS&&HEAD===null)
       cmsg('No compass reading yet. Steel and the simulators can block it.'); },4000);
   });
 }
-$('ednorth').onclick=()=>{
-  $('ednorthval').value=Math.round(NORTH);
-  $('ednorthask').hidden=false;
-  listenHead().then(ok=>{
-    clearInterval(window.__nh);
-    if(!ok)return $('ednowhead').textContent='This device will not share its compass.';
-    window.__nh=setInterval(()=>{
-      $('ednowhead').textContent=(HEAD===null)
-        ?'Compass: no reading yet\u2026':('Compass: '+Math.round(HEAD)+'\u00b0');
-    },400);
-  });
-};
-$('ednorthuse').onclick=()=>{ if(HEAD!==null)$('ednorthval').value=Math.round(HEAD); };
-$('ednorthask').onclick=(e)=>{                       // a tap outside leaves it as it was
-  if(e.target!==$('ednorthask'))return;
-  clearInterval(window.__nh); $('ednorthask').hidden=true;
-};
-$('ednorthok').onclick=()=>{
-  NORTH=((+$('ednorthval').value||0)%360+360)%360;
-  try{localStorage.setItem(NKEY,String(NORTH));}catch(e){}
-  clearInterval(window.__nh); $('ednorthask').hidden=true;
-  edSay('Top of the plan set to '+Math.round(NORTH)+'\u00b0 from north.');
-};
 
 function openV(fk){lockPage();document.body.classList.add('vopen');$('viewer').hidden=false;
   showV(fk);rotePrompt();$('vclose').focus();}
@@ -1662,10 +1690,35 @@ $('vcomp').onclick=()=>{COMPASS?compassOff():compassOn();};
 (function(){const f=paintV;window.paintV=function(){f();if(COMPASS)fitRot();};})();
 (function(){const f=$('vclose').onclick;
   $('vclose').onclick=()=>{if(COMPASS)compassOff();f.call($('vclose'));};})();
-(function(){const f=showV;window.showV=function(fk){f(fk);if(COMPASS){CROT=0;fitRot();}};})();
+(function(){const f=showV;window.showV=function(fk){f(fk);if(COMPASS)fitRot();};})();
 (function(){const f=setZoom;window.setZoom=function(n){f(n);if(COMPASS)fitRot();};})();
 $('zoomin').onclick=()=>setZoom(Math.min(12000,Math.round(zw*1.3)));
 $('zoomout').onclick=()=>setZoom(Math.max(300,Math.round(zw/1.3)));
+
+$('ednorth').onclick=()=>{
+  $('ednorthval').value=Math.round(NORTH);
+  $('ednorthask').hidden=false;
+  listenHead().then(ok=>{
+    clearInterval(window.__nh);
+    if(!ok)return $('ednowhead').textContent='This device will not share its compass.';
+    window.__nh=setInterval(()=>{
+      $('ednowhead').textContent=(HEAD===null)
+        ?'Compass: no reading yet\u2026':('Compass: '+Math.round(HEAD)+'\u00b0');
+    },400);
+  });
+};
+$('ednorthuse').onclick=()=>{ if(HEAD!==null)$('ednorthval').value=Math.round(HEAD); };
+$('ednorthback').onclick=()=>{ $('ednorthval').value=NDEF; };
+$('ednorthask').onclick=(e)=>{                       // a tap outside leaves it as it was
+  if(e.target!==$('ednorthask'))return;
+  clearInterval(window.__nh); $('ednorthask').hidden=true;
+};
+$('ednorthok').onclick=()=>{
+  NORTH=((+$('ednorthval').value||0)%360+360)%360;
+  try{localStorage.setItem(NKEY,String(NORTH));}catch(e){}
+  clearInterval(window.__nh); $('ednorthask').hidden=true; MOVING=true;
+  edSay('Top of the plan set to '+Math.round(NORTH)+'\u00b0 from north.');
+};
 // ---------------------------------------------------------------
 // Two questions to each half of the trip: which wing, then which
 // floor and room -- first for where you are, then for where you go.
@@ -1991,8 +2044,8 @@ function helpHTML(){
     <li>Do the same for where you are going.</li>
     <li>Tap <b>Start route</b>. The map opens full screen.</li>
     <li>If the walk crosses between the floors, tap <b>Next</b> at the top to see the next part of it.</li>
-    <li><b>Compass</b> on the map turns the plan so the way you are facing is up the screen.
-        Your phone will ask once before it shares its compass.</li>
+    <li><b>Compass</b> on the map turns the plan so the way you are facing is up the screen,
+        with a north arrow in the corner. Your phone asks once before it shares its compass.</li>
     <li>On a screen that belongs to the building, the walk you pick goes back to the
         front of the queue on its own after a short while, so the next person starts fresh.</li>
     <li>Standing at a screen that is not yours? Tap <b>Show QR code</b> and point your
