@@ -346,16 +346,17 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
   box-shadow:0 10px 26px rgba(6,16,61,.26)}
 .fbar[hidden]{display:none}
 .ftxt{font:800 16px Inter,system-ui,sans-serif;color:var(--text);line-height:1.3}
-.facts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
-.facts button{appearance:none;cursor:pointer;font:700 13px Inter,system-ui,sans-serif;
-  padding:9px 13px;border-radius:10px;min-height:38px;border:1px solid var(--line);
+.facts{margin-top:10px;display:flex;gap:6px}
+.facts button{appearance:none;cursor:pointer;font:700 12.5px Inter,system-ui,sans-serif;
+  padding:9px 6px;border-radius:10px;min-height:38px;flex:1 1 0;justify-content:center;
+  display:inline-flex;align-items:center;white-space:nowrap;border:1px solid var(--line);
   background:var(--paper);color:var(--text)}
 .facts button[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
 .stage svg #mehere .medot{fill:#1a66ff}
 .stage svg #mehere .mering{fill:none;stroke:#fff}
 .stage svg #mehere .mehalo{fill:#1a66ff;opacity:.17}
 body.following .rose{bottom:112px}
-body.following .cmsg{bottom:112px}
+body.following .cmsg{bottom:118px}
 .cmsg{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:40;
   background:var(--heading);color:#fff;font-size:13.5px;font-weight:700;line-height:1.35;
   padding:11px 17px;border-radius:16px;box-shadow:0 8px 22px rgba(6,16,61,.32);
@@ -528,9 +529,13 @@ body.scanned-trip .locbar{display:none}
   <p class="ednote">This is already set from a satellite view of the site &mdash; the top of
      these plans points at 332&deg;, north-north-west. Only change it if the compass is
      clearly pointing the wrong way. Stand looking the way the <b>top of the plan</b> points
-     and tap Use my heading, or type the bearing in.</p>
+     and tap Use my heading, or type the bearing in. Easier still: turn Compass and Follow
+     on, walk down a corridor and tap <b>Straighten</b> &mdash; it works the bearing out from
+     the corridor you are standing in.</p>
   <p class="edmsg" id="ednowhead">Compass: waiting&hellip;</p>
   <input id="ednorthval" type="number" min="0" max="359" step="1" inputmode="numeric">
+  <div class="row2"><button id="ednorthless" type="button">&minus;5&deg;</button>
+    <button id="ednorthmore" type="button">+5&deg;</button></div>
   <div class="row2"><button id="ednorthback" type="button">Back to 332&deg;</button>
     <button id="ednorthok" type="button" class="pri">Save</button></div>
   <div class="row2"><button id="ednorthuse" type="button">Use my heading</button></div>
@@ -608,6 +613,7 @@ body.scanned-trip .locbar{display:none}
   <div class="fbar" id="fbar" hidden>
     <div class="ftxt" id="ftxt">Counting your steps&hellip;</div>
     <div class="facts">
+      <button id="fstraight" type="button" title="Line the map up with the corridor you are in">Line up</button>
       <button id="fhere" type="button">I am here</button>
       <button id="fdone" type="button">Arrived</button>
       <button id="fstop" type="button">Stop</button>
@@ -1114,6 +1120,11 @@ function overlay(fk,legs,aId,bId){
   const T=f.ih/100;
   let s=`<svg viewBox="0 0 ${f.iw} ${f.ih}" preserveAspectRatio="none" aria-hidden="true">`;
   s+=basemap(fk,[]);          // every room keeps its number, start and finish included
+  // the part of the walk already behind you is masked away, as a road map does
+  s+=`<defs><mask id="walkmask-${fk}" maskUnits="userSpaceOnUse" x="0" y="0" width="${f.iw}" height="${f.ih}">`
+    +`<rect x="0" y="0" width="${f.iw}" height="${f.ih}" fill="#fff"/>`
+    +`<polyline class="walked" points="" fill="none" stroke="#000" stroke-width="${(T*3.70).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`
+    +`</mask></defs><g class="rte" mask="url(#walkmask-${fk})">`;
   const tags=[];
   for(const L of legs){
     const n=f.nav;
@@ -1161,6 +1172,7 @@ function overlay(fk,legs,aId,bId){
     if(L.a)tags.push({x:sp[0][0],y:sp[0][1],text:L.a,c:col(L.t0)});
     if(L.b)tags.push({x:sp[sp.length-1][0],y:sp[sp.length-1][1],text:L.b,c:col(L.t1)});
   }
+  s+='</g>';
   for(const t of tags){
     s+=`<circle cx="${t.x.toFixed(1)}" cy="${t.y.toFixed(1)}" r="${(T*2.17).toFixed(2)}" fill="var(--paper)" stroke="${t.c}" stroke-width="${(T*0.65).toFixed(2)}"/>`;
     s+=`<circle cx="${t.x.toFixed(1)}" cy="${t.y.toFixed(1)}" r="${(T*0.93).toFixed(2)}" fill="${t.c}"/>`;
@@ -1693,7 +1705,8 @@ function fitRot(){
   s.style.setProperty('--mox',ax.toFixed(1)+'px');
   s.style.setProperty('--moy',ay.toFixed(1)+'px');
   s.style.setProperty('--mtx',(b.clientWidth/2-ax).toFixed(1)+'px');
-  s.style.setProperty('--mty',(b.clientHeight*0.54-ay).toFixed(1)+'px');
+  const mid=FOLLOW?(b.clientHeight-104)*0.66:b.clientHeight*0.54;   // clear of the walking bar
+  s.style.setProperty('--mty',(mid-ay).toFixed(1)+'px');
   s.style.setProperty('--mrot',SHOWN.toFixed(1)+'deg');   // a repaint hands back a bare stage
 }
 function compassOff(){
@@ -1779,7 +1792,30 @@ function drawMe(){
     sv.appendChild(g);
   }
   g.setAttribute('transform','translate('+q.x.toFixed(1)+' '+q.y.toFixed(1)+')');
+  rubOut(FDIST);
   fSay();
+}
+// Both the little floor panel and the full-screen copy carry the same mask,
+// so both are told how far you have got.
+function rubOut(d){
+  const pts=[];
+  if(FLINE&&d>0.5){
+    for(let i=0;i<FLINE.p.length&&FLINE.cum[i]<d;i++)pts.push(FLINE.p[i]);
+    const q=atDist(d); pts.push([q.x,q.y]);
+  }
+  const str=pts.length>1?pts.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' '):'';
+  document.querySelectorAll('mask[id="walkmask-'+zfk+'"] .walked')
+    .forEach(e=>e.setAttribute('points',str));
+}
+function clearRub(){
+  document.querySelectorAll('.walked').forEach(e=>e.setAttribute('points',''));
+}
+// close enough to read the room numbers either side of you, as a phone map does
+function walkZoom(){
+  const b=$('vbody'),f=DATA.floors[zfk];
+  const across=280;                      // plan units across the screen, roughly 20 m
+  zw=Math.round(Math.max(b.clientWidth,b.clientWidth*f.iw/across));
+  const st=b.querySelector('.stage'); if(st)st.style.width=zw+'px';
 }
 function fSay(){
   const left=Math.max(0,FLINE.len-FDIST), n=Math.round(left/stepUnits());
@@ -1793,7 +1829,7 @@ function recentreMe(){
   if(COMPASS)return fitRot();                    // the turning view pins on the dot already
   const b=$('vbody'),f=DATA.floors[zfk],k=zw/f.iw,q=atDist(FDIST);
   b.scrollLeft=q.x*k-b.clientWidth/2;
-  b.scrollTop =q.y*k-b.clientHeight*0.55;
+  b.scrollTop =q.y*k-(b.clientHeight-104)*0.66;
 }
 function stepped(){
   if(!FOLLOW||!FLINE)return;
@@ -1828,13 +1864,14 @@ function followOff(){
   $('vfollow').setAttribute('aria-pressed','false');
   $('fbar').hidden=true; document.body.classList.remove('following');
   const g=$('vbody').querySelector('#mehere'); if(g)g.remove();
+  clearRub(); fitRoute(); if(COMPASS)fitRot();
 }
 function followOn(){
   FLINE=routeLine(zfk);
   if(!FLINE)return cmsg('There is no route on this floor to follow.');
   listenMotion().then(ok=>{
     if(!ok)return cmsg('This device will not share its motion sensors with a web page.');
-    FOLLOW=true; FDIST=0; FSTEPS=0; FARM=false;
+    FOLLOW=true; FDIST=0; FSTEPS=0; FARM=false; walkZoom();
     $('vfollow').setAttribute('aria-pressed','true');
     $('fbar').hidden=false; document.body.classList.add('following');
     listenHead();                                // direction of travel needs the compass
@@ -1883,6 +1920,20 @@ $('startroute').onclick=()=>{if(ROUTE.length)openV(ROUTE[0]);};
 $('vcomp').onclick=()=>{COMPASS?compassOff():compassOn();};
 $('vfollow').onclick=()=>{FOLLOW?followOff():followOn();};
 $('fstop').onclick=()=>followOff();
+// You are standing in a corridor whose direction the plan already knows, so your
+// heading and that direction together give the bearing of the top of the page.
+$('fstraight').onclick=()=>{
+  if(HEAD===null)return cmsg('No compass reading yet — turn the Compass on first.');
+  if(!FLINE)return;
+  const a=atDist(FDIST).ang;
+  let cand=((HEAD-90-a)%360+360)%360;
+  const off=x=>Math.abs(((x-NORTH+540)%360)-180);
+  if(off((cand+180)%360)<off(cand))cand=(cand+180)%360;   // walking it the other way
+  NORTH=cand;
+  try{localStorage.setItem(NKEY,String(NORTH));}catch(e){}
+  MOVING=true; if(COMPASS&&RAF===0)RAF=requestAnimationFrame(tick);
+  cmsg('Straightened. Top of the plan is '+Math.round(NORTH)+'° from north.');
+};
 $('fhere').onclick=()=>{FARM=!FARM;$('fhere').setAttribute('aria-pressed',FARM?'true':'false');fSay();};
 $('fdone').onclick=()=>{                      // one walk end to end sets the stride
   if(FSTEPS>8&&FLINE){SPU=FLINE.len/FSTEPS;
@@ -1908,7 +1959,8 @@ $('vbody').addEventListener('click',(e)=>{      // tap the plan to put the dot r
 (function(){const f=$('vclose').onclick;
   $('vclose').onclick=()=>{if(COMPASS)compassOff();if(FOLLOW)followOff();f.call($('vclose'));};})();
 (function(){const f=showV;window.showV=function(fk){f(fk);
-  if(FOLLOW){FLINE=routeLine(fk);FDIST=0;FSTEPS=0;if(!FLINE)followOff();else drawMe();}
+  if(FOLLOW){clearRub();FLINE=routeLine(fk);FDIST=0;FSTEPS=0;
+    if(!FLINE)followOff();else{walkZoom();drawMe();}}
   if(COMPASS)fitRot(); if(FOLLOW)recentreMe();};})();
 (function(){const f=setZoom;window.setZoom=function(n){f(n);if(COMPASS)fitRot();};})();
 $('zoomin').onclick=()=>setZoom(Math.min(12000,Math.round(zw*1.3)));
@@ -1928,6 +1980,12 @@ $('ednorth').onclick=()=>{
 };
 $('ednorthuse').onclick=()=>{ if(HEAD!==null)$('ednorthval').value=Math.round(HEAD); };
 $('ednorthback').onclick=()=>{ $('ednorthval').value=NDEF; };
+const nnudge=d=>{ const v=((+$('ednorthval').value||0)+d+360)%360;
+  $('ednorthval').value=Math.round(v);
+  NORTH=v; MOVING=true;                       // live, so you can watch it line up
+  if(COMPASS&&RAF===0)RAF=requestAnimationFrame(tick); };
+$('ednorthless').onclick=()=>nnudge(-5);
+$('ednorthmore').onclick=()=>nnudge(5);
 $('ednorthask').onclick=(e)=>{                       // a tap outside leaves it as it was
   if(e.target!==$('ednorthask'))return;
   clearInterval(window.__nh); $('ednorthask').hidden=true;
@@ -2265,6 +2323,8 @@ function helpHTML(){
     <li>If the walk crosses between the floors, tap <b>Next</b> at the top to see the next part of it.</li>
     <li><b>Compass</b> on the map turns the plan so the way you are facing is up the screen,
         with a north arrow in the corner. Your phone asks once before it shares its compass.</li>
+    <li>The part of the walk behind you fades off the map as you go, so what is left is
+        what you still have to do.</li>
     <li><b>Follow</b> counts your steps and slides a dot along the route as you walk. A phone
         cannot see where it is indoors, so this is an estimate: if the dot gets ahead or behind,
         tap <b>I am here</b> and then tap the spot on the plan. Tap <b>Arrived</b> at the end of
