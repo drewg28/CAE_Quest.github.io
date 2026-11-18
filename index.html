@@ -396,8 +396,39 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
   </div>
 </header>
 <div class="accentline"></div>
+<style>
+.locbar{margin:0 0 14px}
+.locbtn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--text);
+  font:700 15px Inter,system-ui,sans-serif;padding:11px 16px;border-radius:12px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:9px;min-height:46px}
+.locbtn:hover{border-color:var(--accent)}
+.locbtn span[aria-hidden]{color:var(--accent);font-size:12px}
+.locout{margin-top:11px;border:1px solid var(--line);border-radius:14px;background:var(--card);
+  padding:14px 16px}
+.locout[hidden]{display:none}
+.locmain{font:800 17px Inter,system-ui,sans-serif;color:var(--text);line-height:1.35}
+.locfine{margin-top:7px;font:600 13.5px/1.55 Inter,system-ui,sans-serif;color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.locacts{margin-top:12px;display:flex;flex-wrap:wrap;gap:9px}
+.locacts a,.locacts button{appearance:none;text-decoration:none;cursor:pointer;
+  font:700 14px Inter,system-ui,sans-serif;padding:10px 15px;border-radius:11px;min-height:42px;
+  display:inline-flex;align-items:center;border:1px solid var(--line);background:var(--paper);
+  color:var(--text)}
+.locacts a.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+body.scanned-trip .locbar{display:none}
+#edgeoother{width:100%;font-size:16px;font-weight:600;padding:10px 12px;margin:0 0 12px;
+  border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text)}
+</style>
 <div class="wrap">
   <div id="scanned"></div>
+  <div class="locbar" id="locbar">
+    <button class="locbtn" id="locgo" type="button"><span aria-hidden="true">&#9679;</span> Which building am I at?</button>
+    <div class="locout" id="locout" hidden>
+      <div class="locmain" id="locmain">Asking your phone&hellip;</div>
+      <div class="locfine" id="locfine"></div>
+      <div class="locacts" id="locacts"></div>
+    </div>
+  </div>
   <div class="wiz" id="wiz">
     <div class="wiztop">
       <button class="wback" id="wback" type="button" hidden>&larr; Back</button>
@@ -489,6 +520,19 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
     <button id="ednorthok" type="button" class="pri">Save</button></div>
   <div class="row2"><button id="ednorthuse" type="button">Use my heading</button></div>
 </div></div>
+<div class="edsheet" id="edgeoask" hidden><div class="edcard">
+  <h3>Where the two sites are</h3>
+  <p class="ednote">Pinning both sites lets the map say which one somebody is standing at when
+     they open it in the car park. It is no use indoors &mdash; a phone is only good to a few
+     dozen metres under a metal roof &mdash; but it is ample to tell West from East. Stand
+     outside the building and tap Pin, or paste coordinates copied from a map.</p>
+  <p class="edmsg" id="edgeonow">Location: waiting&hellip;</p>
+  <div class="row2"><button id="edgeohere" type="button">Pin this site here</button></div>
+  <label class="qlabel" for="edgeoother">The other site, as latitude, longitude</label>
+  <input id="edgeoother" type="text" autocomplete="off" spellcheck="false" placeholder="32.8369, -97.0399">
+  <div class="row2"><button id="edgeoclear" type="button">Clear both</button>
+    <button id="edgeook" type="button" class="pri">Save</button></div>
+</div></div>
 <div class="edsheet" id="edhomeask" hidden><div class="edcard">
   <h3>This screen</h3>
   <p class="ednote">Say where this screen is standing. Visitors then only choose where they
@@ -528,6 +572,7 @@ body.editing .viewer-body{cursor:crosshair;touch-action:none}
       <svg class="edsizedot" viewBox="0 0 64 64" width="24" height="24" aria-hidden="true"><circle id="edsizedot" cx="32" cy="32" r="12"/></svg>
     </span>
     <button id="edhome" type="button">Screen settings</button>
+    <button id="edgeo" type="button">Site locations</button>
     <button id="ednorth" type="button">Set north</button>
     <button id="edundo" type="button">Undo</button>
     <span class="edstat" id="edstat"></span><span class="sp"></span>
@@ -2046,6 +2091,8 @@ function helpHTML(){
     <li>If the walk crosses between the floors, tap <b>Next</b> at the top to see the next part of it.</li>
     <li><b>Compass</b> on the map turns the plan so the way you are facing is up the screen,
         with a north arrow in the corner. Your phone asks once before it shares its compass.</li>
+    <li><b>Which building am I at?</b> on the first page uses your phone&rsquo;s location to check
+        you have the right site open. It works in the car park, not indoors.</li>
     <li>On a screen that belongs to the building, the walk you pick goes back to the
         front of the queue on its own after a short while, so the next person starts fresh.</li>
     <li>Standing at a screen that is not yours? Tap <b>Show QR code</b> and point your
@@ -2463,6 +2510,116 @@ const edHint={move:'Drag a dot to move it.',
               block:'Drag over the floor to close it off.'};
 function edUnlocked(){try{return sessionStorage.getItem('caequest-ed')==='1';}catch(e){return false;}}
 function edSay(t){$('edstat').textContent=t;}
+
+// ---- which building are you at -----------------------------------
+(function(){
+  if(!$('locbar'))return;
+  const SITE={name:'Dallas East'};
+  const OTHER={name:'Dallas West',url:'https://caedallaswest.github.io/CAEQuest/'};
+  const GKEY='caequest-sites';
+  let PIN={}; try{PIN=JSON.parse(localStorage.getItem(GKEY)||'{}')||{};}catch(e){PIN={};}
+  const save=()=>{try{localStorage.setItem(GKEY,JSON.stringify(PIN));}catch(e){}};
+  let WATCH=0, FIX=null;
+
+  // great-circle, which over a few miles is the same as a straight line
+  function metres(a,b){
+    const R=6371000, r=Math.PI/180;
+    const dp=(b.lat-a.lat)*r, dl=(b.lon-a.lon)*r;
+    const x=Math.sin(dp/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dl/2)**2;
+    return 2*R*Math.asin(Math.min(1,Math.sqrt(x)));
+  }
+  const far=m=>m<25?'under 25 m':m<900?(Math.round(m/5)*5)+' m':(m/1609.34).toFixed(m<16093?1:0)+' miles';
+  const parse=t=>{const m=String(t).match(/(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/);
+    return m?{lat:+m[1],lon:+m[2]}:null;};
+  function halt(){ if(WATCH)navigator.geolocation.clearWatch(WATCH); WATCH=0; }
+
+  function render(){
+    const main=$('locmain'), fine=$('locfine'), acts=$('locacts');
+    acts.innerHTML=''; $('locout').hidden=false;
+    if(!FIX){main.textContent='Asking your phone\u2026';fine.textContent='';return;}
+    const dh=PIN.here?metres(FIX,PIN.here):null;
+    const dt=PIN.there?metres(FIX,PIN.there):null;
+    const near=Math.max(250,FIX.acc||0);
+    // only claim a site when you are actually standing at it: being merely
+    // nearer to one of them from twenty miles away says nothing useful
+    const atH=dh!==null&&dh<=near, atT=dt!==null&&dt<=near;
+    if(atH&&(!atT||dh<=dt))
+      main.textContent='You are at '+SITE.name+'. This is the right map.';
+    else if(atT)
+      main.textContent='This looks like '+OTHER.name+', not '+SITE.name+'.';
+    else if(dh!==null)
+      main.textContent='You are about '+far(dh)+' from '+SITE.name+'.';
+    else
+      main.textContent='Got your position.';
+    const bits=[FIX.lat.toFixed(5)+', '+FIX.lon.toFixed(5)];
+    if(FIX.acc)bits.push('good to about \u00b1'+Math.round(FIX.acc)+' m');
+    if(dh!==null)bits.push(SITE.name+' '+far(dh));
+    if(dt!==null)bits.push(OTHER.name+' '+far(dt));
+    if(!PIN.here&&!PIN.there)bits.push('neither site pinned yet \u2014 see Site locations in settings');
+    fine.textContent=bits.join(' \u00b7 ');
+    if(atT&&!atH){
+      const a=document.createElement('a');a.className='pri';a.href=OTHER.url;a.rel='noopener';
+      a.textContent='Open the '+OTHER.name+' map'; acts.appendChild(a);
+    }
+    const btn=(label,fn)=>{const b=document.createElement('button');b.type='button';
+      b.textContent=label;b.onclick=fn;acts.appendChild(b);return b;};
+    // pinning from here, so nobody has to go through the editor to set it up
+    if(!PIN.here)btn('This is '+SITE.name+' — pin it',()=>{
+      PIN.here={lat:FIX.lat,lon:FIX.lon};save();render();});
+    btn('Copy these coordinates',function(){
+      const t=FIX.lat.toFixed(5)+', '+FIX.lon.toFixed(5), me=this;
+      const done=()=>{me.textContent='Copied';setTimeout(()=>{me.textContent='Copy these coordinates';},1600);};
+      if(navigator.clipboard&&navigator.clipboard.writeText)
+        navigator.clipboard.writeText(t).then(done,()=>{});
+      else{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);
+        a.select();try{document.execCommand('copy');done();}catch(e){}a.remove();}
+    });
+    btn(WATCH?'Stop':'Close',()=>{halt();$('locout').hidden=true;});
+  }
+  function fail(e){
+    $('locout').hidden=false; $('locacts').innerHTML=''; $('locfine').textContent='';
+    $('locmain').textContent =
+      (e&&e.code===1) ? 'Location is switched off for this page. Allow it in your browser\u2019s site settings and try again.'
+    : (e&&e.code===3) ? 'Your phone could not get a fix in time. Step outside and try again.'
+    : 'Your phone could not work out where it is. Indoors that is normal.';
+    halt();
+  }
+  function start(cb){
+    if(!navigator.geolocation)return fail(null);
+    halt();
+    WATCH=navigator.geolocation.watchPosition(pos=>{
+      FIX={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy};
+      (cb||render)();
+    },fail,{enableHighAccuracy:true,maximumAge:4000,timeout:20000});
+  }
+  $('locgo').onclick=()=>{FIX=null;render();start(null);};
+
+  // ---- settings: pin the two sites --------------------------------
+  function geoNow(){
+    $('edgeonow').textContent = FIX
+      ? ('Location: '+FIX.lat.toFixed(5)+', '+FIX.lon.toFixed(5)+'  \u00b1'+Math.round(FIX.acc||0)+' m')
+      : 'Location: waiting\u2026';
+  }
+  $('edgeo').onclick=()=>{
+    $('edgeohere').textContent='Pin '+SITE.name+' here';
+    $('edgeoother').value=PIN.there?(PIN.there.lat.toFixed(5)+', '+PIN.there.lon.toFixed(5)):'';
+    $('edgeoask').hidden=false; geoNow(); start(geoNow);
+  };
+  $('edgeohere').onclick=()=>{
+    if(!FIX)return edSay('No position yet.');
+    PIN.here={lat:FIX.lat,lon:FIX.lon}; geoNow();
+    $('edgeonow').textContent+='  \u2014 pinned';
+  };
+  $('edgeoclear').onclick=()=>{PIN={};$('edgeoother').value='';
+    $('edgeonow').textContent='Both sites cleared.';};
+  $('edgeoask').onclick=(e)=>{ if(e.target!==$('edgeoask'))return; halt(); $('edgeoask').hidden=true; };
+  $('edgeook').onclick=()=>{
+    const v=$('edgeoother').value.trim(), t=parse(v);
+    if(t)PIN.there=t; else if(!v)delete PIN.there;
+    save(); halt(); $('edgeoask').hidden=true;
+    edSay('Sites saved'+(PIN.here?', this one pinned':'')+(PIN.there?', other one set':'')+'.');
+  };
+})();
 function edSnap(){ED.undo.push(JSON.stringify(EDLOC)); if(ED.undo.length>40)ED.undo.shift();}
 function edCount(){
   let n=0;
